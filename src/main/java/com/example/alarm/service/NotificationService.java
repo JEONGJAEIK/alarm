@@ -167,4 +167,32 @@ public class NotificationService {
         }
         return markRead(id);
     }
+
+    /**
+     * 데드레터 알림 목록을 최근 갱신 순으로 조회.
+     *
+     * @param limit 1~200 사이로 클램프됨
+     */
+    @Transactional(readOnly = true)
+    public java.util.List<Notification> listDeadLetter(int limit) {
+        int safe = Math.min(Math.max(limit, 1), 200);
+        return repo.findByStatusOrderByUpdatedAtDesc(
+                NotificationStatus.DEAD_LETTER,
+                org.springframework.data.domain.PageRequest.of(0, safe));
+    }
+
+    /**
+     * 데드레터 알림을 PENDING으로 되살린다(수동 재시도).
+     *
+     * <p>운영자가 외부 문제 해결 후 호출하는 것을 가정하여 attempts를 0으로 초기화한다.
+     *
+     * @throws NotificationNotFoundException 알림이 없을 때
+     * @throws IllegalStateException 알림이 DEAD_LETTER가 아닐 때 (도메인 메서드에서 던짐)
+     */
+    @Transactional
+    public Notification retryDeadLetter(String id) {
+        Notification n = repo.findById(id).orElseThrow(() -> new NotificationNotFoundException(id));
+        n.revive(Instant.now(clock));
+        return repo.saveAndFlush(n);
+    }
 }
