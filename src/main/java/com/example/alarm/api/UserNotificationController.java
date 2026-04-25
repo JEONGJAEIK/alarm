@@ -4,6 +4,7 @@ import com.example.alarm.api.auth.CurrentUser;
 import com.example.alarm.api.dto.NotificationListItem;
 import com.example.alarm.service.ForbiddenException;
 import com.example.alarm.service.NotificationService;
+import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -13,15 +14,12 @@ import java.util.List;
  *
  * <p>요청자({@code X-User-Id})가 path의 {@code userId}와 일치할 때만 허용한다.
  */
+@RequiredArgsConstructor
 @RestController
 @RequestMapping("/api/users/{userId}/notifications")
 public class UserNotificationController {
 
     private final NotificationService service;
-
-    public UserNotificationController(NotificationService service) {
-        this.service = service;
-    }
 
     /**
      * 사용자 알림 목록 조회. {@code read} 파라미터로 읽음 여부 필터 가능.

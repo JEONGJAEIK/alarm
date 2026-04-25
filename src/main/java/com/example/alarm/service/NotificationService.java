@@ -1,6 +1,7 @@
 package com.example.alarm.service;
 
 import com.example.alarm.domain.*;
+import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -15,16 +16,12 @@ import java.util.Map;
  * <p>register는 dedup_key UNIQUE 제약을 권위로 멱등 보장. 동시 중복 INSERT 시 패자(loser)는
  * {@link DataIntegrityViolationException}을 받고 기존 행을 재조회한다.
  */
+@RequiredArgsConstructor
 @Service
 public class NotificationService {
 
     private final NotificationRepository repo;
     private final Clock clock;
-
-    public NotificationService(NotificationRepository repo, Clock clock) {
-        this.repo = repo;
-        this.clock = clock;
-    }
 
     /**
      * 알림 등록 요청.

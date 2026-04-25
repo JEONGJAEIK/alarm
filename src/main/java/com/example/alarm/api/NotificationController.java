@@ -6,6 +6,7 @@ import com.example.alarm.api.dto.NotificationResponse;
 import com.example.alarm.service.NotificationService;
 import com.example.alarm.service.NotificationService.RegisterCommand;
 import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -15,20 +16,12 @@ import org.springframework.web.bind.annotation.*;
  *
  * <p>모든 요청은 {@code X-User-Id} 헤더 필수. GET은 본인 또는 {@code X-Admin: true}일 때만 허용.
  */
+@RequiredArgsConstructor
 @RestController
 @RequestMapping("/api/notifications")
 public class NotificationController {
 
     private final NotificationService service;
-
-    /**
-     * 생성자 주입.
-     *
-     * @param service 알림 비즈니스 로직 서비스
-     */
-    public NotificationController(NotificationService service) {
-        this.service = service;
-    }
 
     /**
      * 알림 등록 요청을 받아 outbox에 PENDING 행을 생성한다.

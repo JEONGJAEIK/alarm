@@ -1,6 +1,9 @@
 package com.example.alarm.domain;
 
 import jakarta.persistence.*;
+import lombok.AccessLevel;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
 
 import java.time.Instant;
 import java.util.Map;
@@ -13,6 +16,8 @@ import java.util.UUID;
  * 따라 생명주기가 관리된다. 낙관적 락({@code @Version})으로 동시 수정을 방지하며,
  * dedup_key 유니크 인덱스로 중복 생성을 차단한다.
  */
+@Getter
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Entity
 @Table(name = "notification")
 public class Notification {
@@ -75,9 +80,6 @@ public class Notification {
 
     @Version
     private long version;
-
-    /** JPA 전용 기본 생성자. */
-    protected Notification() {}
 
     /**
      * scheduledAt 없이 즉시 발송 대상 알림을 생성한다.
@@ -274,23 +276,4 @@ public class Notification {
         if (s == null) return null;
         return s.length() > 1000 ? s.substring(0, 1000) : s;
     }
-
-    public String getId() { return id; }
-    public String getRecipientId() { return recipientId; }
-    public NotificationType getType() { return type; }
-    public NotificationChannelType getChannel() { return channel; }
-    public String getDedupKey() { return dedupKey; }
-    public Map<String, Object> getReferenceData() { return referenceData; }
-    public NotificationStatus getStatus() { return status; }
-    public int getAttempts() { return attempts; }
-    public Instant getCreatedAt() { return createdAt; }
-    public Instant getUpdatedAt() { return updatedAt; }
-    public Instant getNextAttemptAt() { return nextAttemptAt; }
-    public Instant getClaimedAt() { return claimedAt; }
-    public String getClaimedBy() { return claimedBy; }
-    public String getLastFailureReason() { return lastFailureReason; }
-    public Instant getLastFailureAt() { return lastFailureAt; }
-    public boolean isRead() { return read; }
-    public Instant getReadAt() { return readAt; }
-    public long getVersion() { return version; }
 }
