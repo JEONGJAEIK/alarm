@@ -22,7 +22,7 @@ CREATE TABLE notification (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE INDEX ix_notification_pending_due ON notification (status, next_attempt_at);
-CREATE INDEX ix_notification_recipient   ON notification (recipient_id, created_at);
+CREATE INDEX ix_notification_recipient   ON notification (recipient_id, created_at DESC);
 CREATE INDEX ix_notification_claim       ON notification (status, claimed_at);
 
 CREATE TABLE notification_template (
@@ -45,4 +45,4 @@ CREATE TABLE in_app_message (
     PRIMARY KEY (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-CREATE INDEX ix_inapp_recipient ON in_app_message (recipient_id, created_at);
+CREATE INDEX ix_inapp_recipient ON in_app_message (recipient_id, created_at DESC);
