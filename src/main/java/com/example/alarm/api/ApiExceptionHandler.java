@@ -16,13 +16,16 @@ import java.util.Map;
 /**
  * 컨트롤러 계층의 예외를 일관된 JSON 에러 응답으로 변환.
  *
- * <p>스펙 §8.7의 에러 코드 매핑:
+ * <p>응답 본문은 {@code {"error": "<code>", "message": "<msg>"}} 형식이며,
+ * 검증 실패 시 {@code fields} 키로 필드별 메시지를 추가한다.
+ *
+ * <p>매핑:
  * <ul>
  *   <li>검증 실패 → 400 {@code validation_failed}</li>
- *   <li>인증 헤더 누락 → 401 (Spring {@link ResponseStatusException} 통해)</li>
+ *   <li>인증 헤더 누락 → 401 ({@link ResponseStatusException} 경유)</li>
  *   <li>본인 아닌 알림 접근 → 403 {@code forbidden}</li>
  *   <li>알림 없음 → 404 {@code not_found}</li>
- *   <li>그 외 → 500 {@code internal_error} (메시지 일반화)</li>
+ *   <li>그 외 → 500 {@code internal_error}</li>
  * </ul>
  */
 @RestControllerAdvice
