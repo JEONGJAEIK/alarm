@@ -108,4 +108,22 @@ public class NotificationService {
         }
         return n;
     }
+
+    /**
+     * 수신자 ID로 알림 목록을 페이지로 조회한다. 정렬은 {@code createdAt DESC}.
+     *
+     * @param recipientId 수신자 ID
+     * @param read null이면 전체, true/false면 해당 read 상태로 필터
+     * @param limit 1~200 사이로 클램프됨
+     * @return 알림 엔티티 리스트 (가장 최근 등록 순)
+     */
+    @Transactional(readOnly = true)
+    public java.util.List<Notification> listForRecipient(String recipientId, Boolean read, int limit) {
+        int safe = Math.min(Math.max(limit, 1), 200);
+        var page = org.springframework.data.domain.PageRequest.of(0, safe);
+        if (read == null) {
+            return repo.findByRecipientIdOrderByCreatedAtDesc(recipientId, page);
+        }
+        return repo.findByRecipientIdAndReadOrderByCreatedAtDesc(recipientId, read, page);
+    }
 }
