@@ -12,20 +12,46 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 
 import java.time.Clock;
 
+/**
+ * 알람 서비스 애플리케이션 진입점.
+ *
+ * <p>Spring Boot 자동 구성을 활성화하고, 비동기 처리({@code @Async}),
+ * 스케줄링({@code @Scheduled}), 발송 설정 프로퍼티를 초기화한다.
+ */
 @SpringBootApplication
 @EnableAsync
 @EnableScheduling
 @EnableConfigurationProperties(DispatchProperties.class)
 public class AlarmApplication {
+
+    /**
+     * 애플리케이션 메인 메서드.
+     *
+     * @param args 커맨드라인 인수
+     */
     public static void main(String[] args) {
         SpringApplication.run(AlarmApplication.class, args);
     }
 
+    /**
+     * UTC 기준 시스템 클록 빈을 등록한다.
+     *
+     * @return {@code Clock.systemUTC()}
+     */
     @Bean
     public Clock clock() {
         return Clock.systemUTC();
     }
 
+    /**
+     * 발송 재시도 정책 빈을 등록한다.
+     *
+     * <p>설정 프로퍼티({@link DispatchProperties})로부터 지수 백오프 파라미터를 읽어
+     * {@link ExponentialBackoffRetryPolicy}를 생성한다.
+     *
+     * @param props 발송 설정 프로퍼티
+     * @return 재시도 정책 인스턴스
+     */
     @Bean
     public RetryPolicy retryPolicy(DispatchProperties props) {
         return new ExponentialBackoffRetryPolicy(

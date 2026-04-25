@@ -7,12 +7,17 @@ import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+/**
+ * {@link Notification} 도메인 엔티티 단위 테스트.
+ *
+ * <p>상태 머신 전이, 클레임/해제, 읽음 처리, revive 등 핵심 비즈니스 메서드를 검증한다.
+ */
 class NotificationTest {
 
     private static final Instant T0 = Instant.parse("2026-04-25T10:00:00Z");
 
     @Test
-    void create_initializesPendingWithZeroAttempts() {
+    void create는_PENDING과_attempts_0으로_초기화한다() {
         Notification n = Notification.create("u1", NotificationType.PAYMENT_CONFIRMED,
                 NotificationChannelType.EMAIL, "evt-1", Map.of("a", 1), T0);
 
@@ -25,7 +30,7 @@ class NotificationTest {
     }
 
     @Test
-    void createWithFutureScheduledAt_setsNextAttemptAt() {
+    void 미래_scheduledAt이_있으면_nextAttemptAt에_반영된다() {
         Instant future = T0.plusSeconds(3600);
         Notification n = Notification.create("u1", NotificationType.PAYMENT_CONFIRMED,
                 NotificationChannelType.EMAIL, "evt-2", Map.of(), T0, future);
@@ -34,7 +39,7 @@ class NotificationTest {
     }
 
     @Test
-    void claim_movesPendingToInProgress() {
+    void claim은_PENDING을_IN_PROGRESS로_전이시킨다() {
         Notification n = Notification.create("u1", NotificationType.PAYMENT_CONFIRMED,
                 NotificationChannelType.EMAIL, "evt-3", Map.of(), T0);
         Instant t1 = T0.plusSeconds(1);
@@ -47,7 +52,7 @@ class NotificationTest {
     }
 
     @Test
-    void claim_rejectsFromNonPending() {
+    void claim은_PENDING이_아닌_상태에서_거부된다() {
         Notification n = Notification.create("u1", NotificationType.PAYMENT_CONFIRMED,
                 NotificationChannelType.EMAIL, "evt-4", Map.of(), T0);
         n.claim("worker-A", T0);
@@ -56,7 +61,7 @@ class NotificationTest {
     }
 
     @Test
-    void markSucceeded_clearsClaim() {
+    void markSucceeded는_claim_정보를_정리한다() {
         Notification n = Notification.create("u1", NotificationType.PAYMENT_CONFIRMED,
                 NotificationChannelType.EMAIL, "evt-5", Map.of(), T0);
         n.claim("worker-A", T0);
@@ -69,7 +74,7 @@ class NotificationTest {
     }
 
     @Test
-    void scheduleRetry_incrementsAttemptsAndStoresFailureReason() {
+    void scheduleRetry는_attempts를_증가시키고_실패_사유를_저장한다() {
         Notification n = Notification.create("u1", NotificationType.PAYMENT_CONFIRMED,
                 NotificationChannelType.EMAIL, "evt-6", Map.of(), T0);
         n.claim("worker-A", T0);
@@ -83,7 +88,7 @@ class NotificationTest {
     }
 
     @Test
-    void markDeadLetter_terminal() {
+    void markDeadLetter는_DEAD_LETTER로_전이시킨다() {
         Notification n = Notification.create("u1", NotificationType.PAYMENT_CONFIRMED,
                 NotificationChannelType.EMAIL, "evt-7", Map.of(), T0);
         n.claim("worker-A", T0);
@@ -96,7 +101,7 @@ class NotificationTest {
     }
 
     @Test
-    void releaseStuckClaim_returnsToPendingWithoutBumpingAttempts() {
+    void releaseStuckClaim은_PENDING으로_복귀하면서_attempts를_증가시키지_않는다() {
         Notification n = Notification.create("u1", NotificationType.PAYMENT_CONFIRMED,
                 NotificationChannelType.EMAIL, "evt-8", Map.of(), T0);
         n.claim("worker-A", T0);
@@ -109,7 +114,7 @@ class NotificationTest {
     }
 
     @Test
-    void markRead_setsFlagAndTimestampOnce() {
+    void markRead는_읽음_플래그와_시각을_한_번만_기록한다() {
         Notification n = Notification.create("u1", NotificationType.PAYMENT_CONFIRMED,
                 NotificationChannelType.IN_APP, "evt-9", Map.of(), T0);
 
@@ -123,7 +128,7 @@ class NotificationTest {
     }
 
     @Test
-    void revive_resetsAttemptsAndStatus() {
+    void revive는_attempts와_status를_초기화한다() {
         Notification n = Notification.create("u1", NotificationType.PAYMENT_CONFIRMED,
                 NotificationChannelType.EMAIL, "evt-10", Map.of(), T0);
         n.claim("worker-A", T0);
@@ -137,7 +142,7 @@ class NotificationTest {
     }
 
     @Test
-    void revive_rejectsNonDeadLetter() {
+    void revive는_DEAD_LETTER가_아닌_상태에서_거부된다() {
         Notification n = Notification.create("u1", NotificationType.PAYMENT_CONFIRMED,
                 NotificationChannelType.EMAIL, "evt-11", Map.of(), T0);
 
