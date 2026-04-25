@@ -54,8 +54,9 @@ public class ApiExceptionHandler {
      */
     @ExceptionHandler(ResponseStatusException.class)
     public ResponseEntity<Map<String, Object>> responseStatus(ResponseStatusException ex) {
+        String message = ex.getReason() != null ? ex.getReason() : ex.getStatusCode().toString();
         return ResponseEntity.status(ex.getStatusCode())
-                .body(error(ex.getStatusCode().toString(), ex.getReason()));
+                .body(error(ex.getStatusCode().toString(), message));
     }
 
     /**
