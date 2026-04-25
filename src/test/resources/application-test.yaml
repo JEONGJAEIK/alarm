@@ -5,6 +5,9 @@ spring:
     properties:
       hibernate.format_sql: false
       hibernate.jdbc.time_zone: UTC
+      hibernate.jdbc.batch_size: 10
+      hibernate.order_updates: true
+      hibernate.batch_versioned_data: true
     open-in-view: false
   flyway:
     enabled: true

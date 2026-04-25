@@ -5,6 +5,7 @@ import com.example.alarm.domain.Notification;
 import com.example.alarm.domain.NotificationRepository;
 import com.example.alarm.domain.NotificationStatus;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,6 +26,7 @@ import java.util.List;
  */
 @Component
 @RequiredArgsConstructor
+@Slf4j
 public class DispatchUnitOfWork {
 
     private final NotificationRepository repo;
@@ -40,7 +42,8 @@ public class DispatchUnitOfWork {
      *
      * @param workerId  클레임 시도 워커 식별자
      * @param batchSize 한 번에 가져올 최대 행 수
-     * @return 클레임된 알림들 (영속성 컨텍스트에 attach된 상태)
+     * @return 클레임된 알림들. REQUIRES_NEW 트랜잭션 commit 후 반환되므로 detached 상태이며,
+     *         단순 필드(id, channel, recipientId 등) 읽기만 안전하다.
      */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public List<Notification> claimBatch(String workerId, int batchSize) {
@@ -63,8 +66,11 @@ public class DispatchUnitOfWork {
      */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void finalizeSuccess(String id) {
-        Notification n = repo.lockById(id).orElseThrow();
+        Notification n = repo.lockById(id).orElseThrow(
+                () -> new IllegalStateException("알림이 존재하지 않습니다: " + id));
         if (n.getStatus() != NotificationStatus.IN_PROGRESS) {
+            log.warn("finalizeSuccess skip — id={} status={} (sweeper race or duplicate call)",
+                    id, n.getStatus());
             return;
         }
         n.markSucceeded(Instant.now(clock));
@@ -83,8 +89,10 @@ public class DispatchUnitOfWork {
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void finalizeFailure(String id, String reason, boolean retryable) {
         Instant now = Instant.now(clock);
-        Notification n = repo.lockById(id).orElseThrow();
+        Notification n = repo.lockById(id).orElseThrow(
+                () -> new IllegalStateException("알림이 존재하지 않습니다: " + id));
         if (n.getStatus() != NotificationStatus.IN_PROGRESS) {
+            log.warn("finalizeFailure skip — id={} status={} reason={}", id, n.getStatus(), reason);
             return;
         }
         int nextAttempts = n.getAttempts() + 1;

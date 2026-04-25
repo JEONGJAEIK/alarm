@@ -5,6 +5,7 @@ import com.example.alarm.support.AbstractMysqlIntegrationTest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.Instant;
 import java.util.List;
@@ -19,6 +20,7 @@ class DispatchUnitOfWorkTest extends AbstractMysqlIntegrationTest {
 
     @Autowired DispatchUnitOfWork uow;
     @Autowired NotificationRepository repo;
+    @Autowired TransactionTemplate tx;
 
     @BeforeEach
     void clean() { repo.deleteAll(); }
@@ -88,5 +90,40 @@ class DispatchUnitOfWorkTest extends AbstractMysqlIntegrationTest {
         uow.finalizeFailure(n.getId(), "bad address", false);
 
         assertEquals(NotificationStatus.DEAD_LETTER, repo.findById(n.getId()).orElseThrow().getStatus());
+    }
+
+    @Test
+    void finalizeSuccess는_sweeper가_PENDING으로_되돌린_경우_silent_skip한다() {
+        Notification n = repo.save(Notification.create("u1", NotificationType.PAYMENT_CONFIRMED,
+                NotificationChannelType.EMAIL, "evt-race1", Map.of(), Instant.now().minusSeconds(5)));
+        uow.claimBatch("worker-1", 10);
+
+        // sweeper 시뮬레이션: bulk UPDATE로 PENDING 복귀 (트랜잭션 필요)
+        tx.executeWithoutResult(s ->
+                repo.releaseStuckClaims(Instant.now().plusSeconds(999), Instant.now()));
+
+        // finalizeSuccess 시도 — 가드에 막혀 silent skip
+        assertDoesNotThrow(() -> uow.finalizeSuccess(n.getId()));
+
+        Notification after = repo.findById(n.getId()).orElseThrow();
+        assertEquals(NotificationStatus.PENDING, after.getStatus());
+        assertEquals(0, after.getAttempts(), "sweeper 복귀는 attempts를 증가시키지 않아야 한다");
+    }
+
+    @Test
+    void finalizeFailure는_sweeper가_PENDING으로_되돌린_경우_silent_skip한다() {
+        Notification n = repo.save(Notification.create("u1", NotificationType.PAYMENT_CONFIRMED,
+                NotificationChannelType.EMAIL, "evt-race2", Map.of(), Instant.now().minusSeconds(5)));
+        uow.claimBatch("worker-1", 10);
+
+        // sweeper 시뮬레이션: bulk UPDATE로 PENDING 복귀 (트랜잭션 필요)
+        tx.executeWithoutResult(s ->
+                repo.releaseStuckClaims(Instant.now().plusSeconds(999), Instant.now()));
+
+        assertDoesNotThrow(() -> uow.finalizeFailure(n.getId(), "ignored", true));
+
+        Notification after = repo.findById(n.getId()).orElseThrow();
+        assertEquals(NotificationStatus.PENDING, after.getStatus());
+        assertEquals(0, after.getAttempts(), "silent skip 시 attempts 증가 안 함");
     }
 }

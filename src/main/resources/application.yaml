@@ -2,7 +2,7 @@ spring:
   application:
     name: alarm
   datasource:
-    url: ${SPRING_DATASOURCE_URL:jdbc:mysql://localhost:3306/alarm?serverTimezone=UTC&useUnicode=true&characterEncoding=utf8}
+    url: ${SPRING_DATASOURCE_URL:jdbc:mysql://localhost:3306/alarm?serverTimezone=UTC&useUnicode=true&characterEncoding=utf8&rewriteBatchedStatements=true&sessionVariables=transaction_isolation='READ-COMMITTED'}
     username: ${SPRING_DATASOURCE_USERNAME:alarm}
     password: ${SPRING_DATASOURCE_PASSWORD:alarm}
     driver-class-name: com.mysql.cj.jdbc.Driver
@@ -12,6 +12,9 @@ spring:
     properties:
       hibernate.format_sql: true
       hibernate.jdbc.time_zone: UTC
+      hibernate.jdbc.batch_size: 20
+      hibernate.order_updates: true
+      hibernate.batch_versioned_data: true
     open-in-view: false
   flyway:
     enabled: true
