@@ -148,4 +148,29 @@ class NotificationTest {
 
         assertThrows(IllegalStateException.class, () -> n.revive(T0));
     }
+
+    @Test
+    void markSucceeded는_IN_PROGRESS가_아니면_거부된다() {
+        Notification n = Notification.create("u1", NotificationType.PAYMENT_CONFIRMED,
+                NotificationChannelType.EMAIL, "evt-12", Map.of(), T0);
+
+        assertThrows(IllegalStateException.class, () -> n.markSucceeded(T0));
+    }
+
+    @Test
+    void scheduleRetry는_IN_PROGRESS가_아니면_거부된다() {
+        Notification n = Notification.create("u1", NotificationType.PAYMENT_CONFIRMED,
+                NotificationChannelType.EMAIL, "evt-13", Map.of(), T0);
+
+        assertThrows(IllegalStateException.class,
+                () -> n.scheduleRetry(T0.plusSeconds(10), "reason", T0));
+    }
+
+    @Test
+    void markDeadLetter는_IN_PROGRESS가_아니면_거부된다() {
+        Notification n = Notification.create("u1", NotificationType.PAYMENT_CONFIRMED,
+                NotificationChannelType.EMAIL, "evt-14", Map.of(), T0);
+
+        assertThrows(IllegalStateException.class, () -> n.markDeadLetter("fail", T0));
+    }
 }

@@ -1,7 +1,9 @@
 package com.example.alarm.domain;
 
+import jakarta.persistence.LockModeType;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -67,17 +69,19 @@ public interface NotificationRepository extends JpaRepository<Notification, Stri
     /**
      * cutoff보다 오래된 클레임을 일괄 해제하여 {@code PENDING}으로 복귀시킨다.
      *
-     * <p>벌크 업데이트이므로 1차 캐시가 갱신되지 않는다.
-     * 호출 후 영속성 컨텍스트를 flush/clear하거나 새 트랜잭션에서 사용할 것.
+     * <p>벌크 업데이트이며, {@code version + 1}로 낙관적 락 버전을 증가시켜
+     * 이전 스냅샷과의 충돌을 방지한다. {@code clearAutomatically = true}로
+     * 호출 후 영속성 컨텍스트가 자동 clear된다.
      *
      * @param cutoff 이 시각 이전 클레임 행을 대상으로 함
      * @param now    updated_at에 기록할 현재 시각 (UTC)
      * @return 갱신된 행 수
      */
-    @Modifying
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query(value = """
         UPDATE notification
-           SET status = 'PENDING', claimed_at = NULL, claimed_by = NULL, updated_at = :now
+           SET status = 'PENDING', claimed_at = NULL, claimed_by = NULL,
+               updated_at = :now, version = version + 1
          WHERE status = 'IN_PROGRESS' AND claimed_at < :cutoff
         """, nativeQuery = true)
     int releaseStuckClaims(@Param("cutoff") Instant cutoff,
@@ -112,4 +116,16 @@ public interface NotificationRepository extends JpaRepository<Notification, Stri
      * @return 해당 상태 알림 목록
      */
     List<Notification> findByStatusOrderByUpdatedAtDesc(NotificationStatus status, Pageable pageable);
+
+    /**
+     * ID로 알림을 비관적 쓰기 락을 걸어 조회한다.
+     *
+     * <p>finalize 단계에서 동시 수정을 방지하기 위해 사용. 반드시 트랜잭션 안에서 호출해야 한다.
+     *
+     * @param id 알림 식별자
+     * @return 락이 걸린 알림 (없으면 empty)
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT n FROM Notification n WHERE n.id = :id")
+    Optional<Notification> lockById(@Param("id") String id);
 }

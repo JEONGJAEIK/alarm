@@ -35,4 +35,11 @@ class DedupKeysTest {
                 DedupKeys.derive("evt-1", NotificationChannelType.EMAIL),
                 DedupKeys.derive("evt-1", NotificationChannelType.IN_APP));
     }
+
+    @Test
+    void derive는_eventId의_대소문자를_구별하지_않는다() {
+        assertEquals(
+                DedupKeys.derive("evt-ABC", NotificationChannelType.EMAIL),
+                DedupKeys.derive("evt-abc", NotificationChannelType.EMAIL));
+    }
 }

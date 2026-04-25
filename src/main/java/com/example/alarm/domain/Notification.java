@@ -163,8 +163,12 @@ public class Notification {
      * <p>클레임 정보를 초기화하고 상태를 {@code SUCCEEDED}로 전이시킨다.
      *
      * @param now 성공 처리 시각 (UTC)
+     * @throws IllegalStateException IN_PROGRESS 상태가 아닐 때
      */
     public void markSucceeded(Instant now) {
+        if (status != NotificationStatus.IN_PROGRESS) {
+            throw new IllegalStateException("IN_PROGRESS 상태에서만 성공 처리할 수 있습니다 (현재: " + status + ")");
+        }
         this.status = NotificationStatus.SUCCEEDED;
         this.claimedAt = null;
         this.claimedBy = null;
@@ -179,8 +183,12 @@ public class Notification {
      * @param nextAttemptAt 다음 발송 시도 시각 (UTC)
      * @param failureReason 실패 사유 (1000자 초과 시 잘림)
      * @param now           현재 시각 (UTC)
+     * @throws IllegalStateException IN_PROGRESS 상태가 아닐 때
      */
     public void scheduleRetry(Instant nextAttemptAt, String failureReason, Instant now) {
+        if (status != NotificationStatus.IN_PROGRESS) {
+            throw new IllegalStateException("IN_PROGRESS 상태에서만 재시도 예약할 수 있습니다 (현재: " + status + ")");
+        }
         this.status = NotificationStatus.PENDING;
         this.attempts = this.attempts + 1;
         this.nextAttemptAt = nextAttemptAt;
@@ -198,8 +206,12 @@ public class Notification {
      *
      * @param failureReason 최종 실패 사유 (1000자 초과 시 잘림)
      * @param now           처리 시각 (UTC)
+     * @throws IllegalStateException IN_PROGRESS 상태가 아닐 때
      */
     public void markDeadLetter(String failureReason, Instant now) {
+        if (status != NotificationStatus.IN_PROGRESS) {
+            throw new IllegalStateException("IN_PROGRESS 상태에서만 DEAD_LETTER로 전이할 수 있습니다 (현재: " + status + ")");
+        }
         this.status = NotificationStatus.DEAD_LETTER;
         this.attempts = this.attempts + 1;
         this.claimedAt = null;

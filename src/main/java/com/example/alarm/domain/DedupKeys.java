@@ -1,5 +1,7 @@
 package com.example.alarm.domain;
 
+import java.util.Locale;
+
 /**
  * 알림 중복 제거 키(dedup key) 생성 유틸리티.
  *
@@ -12,8 +14,9 @@ public final class DedupKeys {
     /**
      * eventId와 channel로부터 중복 제거 키를 파생한다.
      *
-     * <p>키 포맷: {@code "<eventId>::<channelName>"}. 동일 이벤트·채널 쌍에 대해
-     * 항상 동일한 키를 반환하므로 유니크 인덱스 조회에 사용할 수 있다.
+     * <p>키 포맷: {@code "<eventId(소문자)>::<channelName>"}. eventId는
+     * {@link Locale#ROOT}로 소문자 변환되므로 대소문자를 구별하지 않는다.
+     * 동일 이벤트·채널 쌍에 대해 항상 동일한 키를 반환하므로 유니크 인덱스 조회에 사용할 수 있다.
      *
      * @param eventId 외부 이벤트 식별자 (blank 불가)
      * @param channel 알림 채널 유형 (null 불가)
@@ -27,6 +30,6 @@ public final class DedupKeys {
         if (channel == null) {
             throw new IllegalArgumentException("channel은 null일 수 없습니다");
         }
-        return eventId + "::" + channel.name();
+        return eventId.toLowerCase(Locale.ROOT) + "::" + channel.name();
     }
 }
