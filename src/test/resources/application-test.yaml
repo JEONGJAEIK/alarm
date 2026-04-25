@@ -15,7 +15,7 @@ spring:
 
 alarm:
   dispatch:
-    poll-interval-ms: 50
+    poll-interval-ms: 3600000
     batch-size: 10
     max-attempts: 3
     visibility-timeout-seconds: 2
