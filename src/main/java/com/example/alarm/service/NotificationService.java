@@ -3,7 +3,6 @@ package com.example.alarm.service;
 import com.example.alarm.domain.*;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -14,22 +13,15 @@ import java.util.Map;
  *
  * <p>register는 dedup_key UNIQUE 제약을 권위로 멱등 보장. 동시 중복 INSERT 시 패자(loser)는
  * {@link DataIntegrityViolationException}을 받고 기존 행을 재조회한다.
- *
- * <p>INSERT 시도는 {@link NotificationInsertHelper}가 {@code REQUIRES_NEW} 트랜잭션으로
- * 격리하여, INSERT 실패 시 해당 트랜잭션만 롤백되고 호출자 트랜잭션이 오염되지 않는다.
  */
 @Service
 public class NotificationService {
 
     private final NotificationRepository repo;
-    private final NotificationInsertHelper insertHelper;
     private final Clock clock;
 
-    public NotificationService(NotificationRepository repo,
-                                NotificationInsertHelper insertHelper,
-                                Clock clock) {
+    public NotificationService(NotificationRepository repo, Clock clock) {
         this.repo = repo;
-        this.insertHelper = insertHelper;
         this.clock = clock;
     }
 
@@ -58,8 +50,22 @@ public class NotificationService {
      * 먼저 dedup_key로 기존 행을 조회하고, 없으면 INSERT를 시도한다. 동시 INSERT race가
      * 발생하면 unique 제약 위반을 catch한 뒤 재조회로 동일성을 보장한다.
      *
-     * <p>INSERT는 {@link NotificationInsertHelper#insertAndFlush}가 별도 트랜잭션으로
-     * 격리하므로, INSERT 실패 시 해당 트랜잭션만 롤백되어 이후 재조회가 가능하다.
+     * <p><b>경고: 이 메서드에 절대 {@code @Transactional}을 추가하지 마세요.</b>
+     * 이유는 두 가지:
+     * <ul>
+     *   <li>{@code @Transactional}을 붙이면 REPEATABLE READ snapshot이 1차 조회 시점에 고정되어,
+     *       {@link DataIntegrityViolationException} catch 후 재조회가 승자(winner) 행을 보지 못함.</li>
+     *   <li>{@code @Transactional(REQUIRES_NEW)}을 붙이면 {@code saveAndFlush} unique 위반이
+     *       해당 트랜잭션을 rollback-only로 마킹해 같은 트랜잭션의 catch 후 재조회가 막힘.</li>
+     * </ul>
+     * 현재 디자인은 {@code register} 자체에 트랜잭션 경계가 없고,
+     * Spring Data JPA의 {@code saveAndFlush}가 메서드 레벨 {@code @Transactional}로
+     * 독립 트랜잭션을 잠깐 열어 INSERT만 처리하므로 catch 후 재조회가 안전합니다.
+     *
+     * <p><b>호출자 트랜잭션과 독립:</b> 이 메서드는 호출자의 {@code @Transactional} 트랜잭션과
+     * 무관하게 알림 행을 커밋합니다(saveAndFlush의 자체 트랜잭션). 호출자 롤백이 알림 생성을
+     * 취소하지 않으므로, 비즈니스 트랜잭션의 사이드이펙트로 알림을 등록할 때는
+     * {@code @TransactionalEventListener(phase=AFTER_COMMIT)} 패턴 사용 권장.
      *
      * @param cmd 등록 요청 데이터
      * @return 새로 생성됐거나 기존에 존재하던 알림 엔티티
@@ -67,23 +73,19 @@ public class NotificationService {
     public Notification register(RegisterCommand cmd) {
         Instant now = Instant.now(clock);
         String dedupKey = DedupKeys.derive(cmd.eventId(), cmd.channel());
+        return repo.findByDedupKey(dedupKey).orElseGet(() -> insertNew(cmd, now));
+    }
 
-        // 1차: 이미 존재하는 행 반환
-        var existing = repo.findByDedupKey(dedupKey);
-        if (existing.isPresent()) {
-            return existing.get();
-        }
-
-        // 2차: INSERT 시도 (별도 REQUIRES_NEW 트랜잭션)
+    private Notification insertNew(RegisterCommand cmd, Instant now) {
         Notification n = Notification.create(
                 cmd.recipientId(), cmd.type(), cmd.channel(),
                 cmd.eventId(), cmd.referenceData(), now, cmd.scheduledAt());
         try {
-            return insertHelper.insertAndFlush(n);
+            return repo.saveAndFlush(n);
         } catch (DataIntegrityViolationException dup) {
-            // 동시 INSERT race — 승자(winner)의 행 반환
-            return repo.findByDedupKey(dedupKey)
-                    .orElseThrow(() -> dup);
+            return repo.findByDedupKey(n.getDedupKey())
+                    .orElseThrow(() -> new IllegalStateException(
+                            "dedup_key=" + n.getDedupKey() + " unique 위반 후 승자 행 재조회 실패", dup));
         }
     }
 }

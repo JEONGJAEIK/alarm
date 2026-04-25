@@ -52,18 +52,28 @@ class NotificationServiceRegisterTest extends AbstractMysqlIntegrationTest {
                 NotificationType.PAYMENT_CONFIRMED, NotificationChannelType.EMAIL,
                 "evt-3", Map.of(), null);
 
-        ExecutorService pool = Executors.newFixedThreadPool(8);
+        int threadCount = 16;
+        ExecutorService pool = Executors.newFixedThreadPool(threadCount);
+        CyclicBarrier barrier = new CyclicBarrier(threadCount);
         try {
-            var ids = IntStream.range(0, 16)
-                    .mapToObj(i -> pool.submit(() -> service.register(cmd).getId()))
-                    .toList()
-                    .stream()
+            var futures = IntStream.range(0, threadCount).mapToObj(i -> pool.submit(() -> {
+                try {
+                    barrier.await(); // 모든 스레드가 동시에 출발
+                    return service.register(cmd).getId();
+                } catch (Exception e) {
+                    throw new RuntimeException(e);
+                }
+            })).toList();
+
+            var ids = futures.stream()
                     .map(f -> {
-                        try { return f.get(); } catch (Exception e) { throw new RuntimeException(e); }
+                        try { return f.get(5, TimeUnit.SECONDS); }
+                        catch (Exception e) { throw new RuntimeException(e); }
                     })
                     .distinct()
                     .toList();
-            assertEquals(1, ids.size());
+            assertEquals(1, ids.size(), "동시 중복 요청은 단일 id로 수렴해야 한다");
+            assertEquals(1, repo.count(), "DB에 단 1개 행만 존재해야 한다");
         } finally {
             pool.shutdown();
             pool.awaitTermination(5, TimeUnit.SECONDS);
