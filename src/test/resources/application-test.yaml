@@ -23,3 +23,4 @@ alarm:
     backoff-base-ms: 10
     backoff-max-ms: 200
     backoff-jitter-ratio: 0.0
+    executor-await-seconds: 2

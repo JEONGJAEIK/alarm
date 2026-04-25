@@ -30,8 +30,14 @@ public class StuckClaimSweeper {
 
     /**
      * 스케줄러가 호출하는 진입점. 어떤 예외도 다음 sweep을 막지 않도록 흡수.
+     *
+     * <p>{@code @Transactional}이 명시된 이유: {@link #sweep()}은 public API로
+     * 외부 직접 호출도 지원하지만, 스케줄러는 this.sweep() 형태로 자기 호출하므로
+     * Spring AOP 프록시를 우회한다. 이 메서드에 트랜잭션을 걸어 self-invocation
+     * 문제를 해소한다.
      */
     @Scheduled(fixedDelayString = "${alarm.dispatch.sweep-interval-ms}")
+    @Transactional
     public void scheduledSweep() {
         try {
             int released = sweep();

@@ -25,6 +25,7 @@ public class DispatchProperties {
     private long backoffBaseMs = 1_000;
     private long backoffMaxMs = 30L * 60 * 1000;
     private double backoffJitterRatio = 0.2;
+    private int executorAwaitSeconds = 30;
 
     /**
      * 지수 백오프 기본 지연 시간을 {@link Duration}으로 반환한다.
@@ -46,4 +47,11 @@ public class DispatchProperties {
      * @return {@code visibilityTimeoutSeconds} 기반 Duration
      */
     public Duration visibilityTimeout() { return Duration.ofSeconds(visibilityTimeoutSeconds); }
+
+    /**
+     * 디스패처 스레드 풀 graceful shutdown 대기 시간(초)을 반환한다.
+     *
+     * @return {@code executorAwaitSeconds} 값
+     */
+    public int getExecutorAwaitSeconds() { return executorAwaitSeconds; }
 }
