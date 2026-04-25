@@ -56,4 +56,17 @@ public class NotificationController {
         boolean isAdmin = "true".equalsIgnoreCase(adminHeader);
         return NotificationResponse.from(service.findById(id, caller, isAdmin));
     }
+
+    /**
+     * 알림 읽음 처리. 본인만 호출 가능.
+     *
+     * @param id     읽음 처리할 알림 ID
+     * @param caller 인증된 사용자 ID ({@code X-User-Id} 헤더에서 주입)
+     * @return 200 OK + 읽음 처리된 알림 응답
+     */
+    @PatchMapping("/{id}/read")
+    public NotificationResponse markRead(@PathVariable String id,
+                                         @CurrentUser String caller) {
+        return NotificationResponse.from(service.markReadByOwner(id, caller));
+    }
 }

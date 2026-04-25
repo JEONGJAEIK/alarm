@@ -9,6 +9,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.Map;
+import java.util.List;
 
 /**
  * 알림 등록·조회·읽음 처리·데드레터 관리의 단일 진입점.
@@ -115,12 +116,55 @@ public class NotificationService {
      * @return 알림 엔티티 리스트 (가장 최근 등록 순)
      */
     @Transactional(readOnly = true)
-    public java.util.List<Notification> listForRecipient(String recipientId, Boolean read, int limit) {
+    public List<Notification> listForRecipient(String recipientId, Boolean read, int limit) {
         int safe = Math.min(Math.max(limit, 1), 200);
         var page = org.springframework.data.domain.PageRequest.of(0, safe);
         if (read == null) {
             return repo.findByRecipientIdOrderByCreatedAtDesc(recipientId, page);
         }
         return repo.findByRecipientIdAndReadOrderByCreatedAtDesc(recipientId, read, page);
+    }
+
+    /**
+     * 알림을 읽음 상태로 전이. 이미 읽음 상태면 즉시 반환.
+     *
+     * <p>다중 디바이스에서 동시 호출 시 {@code @Version} 낙관적 락 충돌이 발생할 수 있다.
+     * 충돌 시 1회 재조회하면 이미 읽음 상태로 정착되어 있으므로 멱등.
+     *
+     * <p><b>트랜잭션 경계 없음:</b> {@code saveAndFlush}의 자체 트랜잭션이 낙관적 락을
+     * 처리하므로, 외부 {@code @Transactional}이 없어야 catch 후 재조회가 안전하게 동작한다.
+     * {@code @Transactional}을 붙이면 충돌 시 트랜잭션이 rollback-only로 마킹되어
+     * {@link org.springframework.transaction.UnexpectedRollbackException}이 전파된다.
+     *
+     * @param id 알림 ID
+     * @return 읽음 처리된 알림 (또는 이미 읽음 상태였던 알림)
+     * @throws NotificationNotFoundException 해당 ID가 없을 때
+     */
+    public Notification markRead(String id) {
+        Notification n = repo.findById(id).orElseThrow(() -> new NotificationNotFoundException(id));
+        if (n.isRead()) return n;
+        try {
+            n.markRead(Instant.now(clock));
+            return repo.saveAndFlush(n);
+        } catch (org.springframework.orm.ObjectOptimisticLockingFailureException race) {
+            return repo.findById(id).orElseThrow(() -> new NotificationNotFoundException(id));
+        }
+    }
+
+    /**
+     * 본인 검증 후 알림을 읽음 처리. 권한 검증은 트랜잭션 밖에서 수행.
+     *
+     * @param id          알림 ID
+     * @param requesterId 호출자 사용자 ID
+     * @return 읽음 처리된 알림
+     * @throws NotificationNotFoundException 해당 ID가 없을 때
+     * @throws ForbiddenException            호출자가 알림의 수신자가 아닐 때
+     */
+    public Notification markReadByOwner(String id, String requesterId) {
+        Notification n = repo.findById(id).orElseThrow(() -> new NotificationNotFoundException(id));
+        if (!n.getRecipientId().equals(requesterId)) {
+            throw new ForbiddenException("본인의 알림만 읽음 처리할 수 있습니다");
+        }
+        return markRead(id);
     }
 }
