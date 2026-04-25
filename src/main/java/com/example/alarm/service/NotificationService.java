@@ -3,6 +3,7 @@ package com.example.alarm.service;
 import com.example.alarm.domain.*;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -87,5 +88,24 @@ public class NotificationService {
                     .orElseThrow(() -> new IllegalStateException(
                             "dedup_key=" + n.getDedupKey() + " unique 위반 후 승자 행 재조회 실패", dup));
         }
+    }
+
+    /**
+     * 알림 ID로 단건 조회. 본인 또는 관리자만 접근 가능.
+     *
+     * @param id          알림 ID
+     * @param requesterId 호출자 사용자 ID
+     * @param isAdmin     관리자 헤더 여부
+     * @return 조회된 알림
+     * @throws NotificationNotFoundException 알림이 없을 때
+     * @throws ForbiddenException            본인이 아니고 관리자도 아닐 때
+     */
+    @Transactional(readOnly = true)
+    public Notification findById(String id, String requesterId, boolean isAdmin) {
+        Notification n = repo.findById(id).orElseThrow(() -> new NotificationNotFoundException(id));
+        if (!isAdmin && !n.getRecipientId().equals(requesterId)) {
+            throw new ForbiddenException("본인의 알림만 조회할 수 있습니다");
+        }
+        return n;
     }
 }
