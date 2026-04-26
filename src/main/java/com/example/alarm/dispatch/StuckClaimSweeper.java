@@ -42,10 +42,10 @@ public class StuckClaimSweeper {
         try {
             int released = sweep();
             if (released > 0) {
-                log.info("released {} stuck claims", released);
+                log.info("stuck 클레임 {}건 해제", released);
             }
         } catch (Exception e) {
-            log.error("sweep failed", e);
+            log.error("sweep 실패", e);
         }
     }
 

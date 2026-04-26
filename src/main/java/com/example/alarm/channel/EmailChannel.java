@@ -25,7 +25,7 @@ public class EmailChannel implements NotificationChannel {
     @Override
     public void deliver(Notification n) {
         var rendered = renderer.render(n.getType(), n.getChannel(), n.getReferenceData());
-        log.info("[email-mock] to={} title=\"{}\" body=\"{}\"",
+        log.info("[이메일-모의발송] to={} 제목=\"{}\" 본문=\"{}\"",
                 n.getRecipientId(), rendered.title(), rendered.body());
     }
 }

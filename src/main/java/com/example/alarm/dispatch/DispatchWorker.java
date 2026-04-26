@@ -50,10 +50,10 @@ public class DispatchWorker {
         try {
             int processed = dispatcher.runOnce(workerId);
             if (processed > 0) {
-                log.debug("worker={} processed={}", workerId, processed);
+                log.debug("워커 worker={} 처리={}", workerId, processed);
             }
         } catch (Exception e) {
-            log.error("dispatch tick failed", e);
+            log.error("디스패치 tick 실패", e);
         }
     }
 

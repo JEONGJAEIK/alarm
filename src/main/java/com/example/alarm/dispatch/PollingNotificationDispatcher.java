@@ -33,7 +33,7 @@ public class PollingNotificationDispatcher implements NotificationDispatcher {
         try {
             claimed = uow.claimBatch(workerId, props.getBatchSize());
         } catch (Exception e) {
-            log.error("claim batch failed", e);
+            log.error("claim 배치 실패", e);
             return 0;
         }
         int processed = 0;
@@ -42,7 +42,7 @@ public class PollingNotificationDispatcher implements NotificationDispatcher {
                 processOne(n);
                 processed++;
             } catch (Exception e) {
-                log.warn("processOne unexpected error id={}", n.getId(), e);
+                log.warn("processOne 예기치 못한 오류 id={}", n.getId(), e);
             }
         }
         return processed;
@@ -55,7 +55,7 @@ public class PollingNotificationDispatcher implements NotificationDispatcher {
         } catch (ChannelDeliveryException ex) {
             uow.finalizeFailure(n.getId(), ex.getMessage(), ex.isRetryable());
         } catch (Exception ex) {
-            log.warn("delivery threw unexpected exception id={}", n.getId(), ex);
+            log.warn("발송 중 예기치 못한 예외 id={}", n.getId(), ex);
             uow.finalizeFailure(n.getId(),
                     ex.getClass().getSimpleName() + ": " + ex.getMessage(), true);
         }
