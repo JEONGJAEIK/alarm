@@ -7,10 +7,14 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
+import org.springframework.data.auditing.DateTimeProvider;
+import org.springframework.data.jpa.repository.config.EnableJpaAuditing;
 import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.scheduling.annotation.EnableScheduling;
 
 import java.time.Clock;
+import java.time.Instant;
+import java.util.Optional;
 
 /**
  * 알람 서비스 애플리케이션 진입점.
@@ -22,6 +26,7 @@ import java.time.Clock;
 @EnableAsync
 @EnableScheduling
 @EnableConfigurationProperties(DispatchProperties.class)
+@EnableJpaAuditing(dateTimeProviderRef = "auditDateTimeProvider")
 public class AlarmApplication {
 
     /**
@@ -57,5 +62,16 @@ public class AlarmApplication {
         return new ExponentialBackoffRetryPolicy(
                 props.backoffBase(), props.backoffMax(),
                 props.getBackoffJitterRatio(), props.getMaxAttempts());
+    }
+
+    /**
+     * JPA Auditing의 시간 소스를 {@link Clock}에 위임하는 {@link DateTimeProvider}.
+     *
+     * <p>{@code @CreatedDate}, {@code @LastModifiedDate}가 이 빈을 통해 시간을 가져오므로
+     * 테스트에서 {@code Clock.fixed(...)}로 시간을 고정하면 감사 시간도 결정론적이다.
+     */
+    @Bean
+    public DateTimeProvider auditDateTimeProvider(Clock clock) {
+        return () -> Optional.of(Instant.now(clock));
     }
 }

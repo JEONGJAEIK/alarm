@@ -20,7 +20,7 @@ import java.util.UUID;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Entity
 @Table(name = "notification")
-public class Notification {
+public class Notification extends BaseTimeEntity {
 
     @Id
     @Column(length = 36)
@@ -50,12 +50,6 @@ public class Notification {
 
     @Column(nullable = false)
     private int attempts;
-
-    @Column(name = "created_at", nullable = false)
-    private Instant createdAt;
-
-    @Column(name = "updated_at", nullable = false)
-    private Instant updatedAt;
 
     @Column(name = "next_attempt_at", nullable = false)
     private Instant nextAttemptAt;
@@ -145,8 +139,6 @@ public class Notification {
         n.referenceData = referenceData == null ? Map.of() : Map.copyOf(referenceData);
         n.status = NotificationStatus.PENDING;
         n.attempts = 0;
-        n.createdAt = now;
-        n.updatedAt = now;
         n.nextAttemptAt = (scheduledAt != null && scheduledAt.isAfter(now)) ? scheduledAt : now;
         n.read = false;
         return n;
@@ -169,7 +161,6 @@ public class Notification {
         this.status = NotificationStatus.IN_PROGRESS;
         this.claimedAt = now;
         this.claimedBy = workerId;
-        this.updatedAt = now;
     }
 
     /**
@@ -187,7 +178,6 @@ public class Notification {
         this.status = NotificationStatus.SUCCEEDED;
         this.claimedAt = null;
         this.claimedBy = null;
-        this.updatedAt = now;
     }
 
     /**
@@ -211,7 +201,6 @@ public class Notification {
         this.claimedBy = null;
         this.lastFailureReason = truncate(failureReason);
         this.lastFailureAt = now;
-        this.updatedAt = now;
     }
 
     /**
@@ -233,7 +222,6 @@ public class Notification {
         this.claimedBy = null;
         this.lastFailureReason = truncate(failureReason);
         this.lastFailureAt = now;
-        this.updatedAt = now;
     }
 
     /**
@@ -248,7 +236,6 @@ public class Notification {
         this.status = NotificationStatus.PENDING;
         this.claimedAt = null;
         this.claimedBy = null;
-        this.updatedAt = now;
     }
 
     /**
@@ -262,7 +249,6 @@ public class Notification {
         if (this.read) return;
         this.read = true;
         this.readAt = now;
-        this.updatedAt = now;
     }
 
     /**
@@ -282,7 +268,6 @@ public class Notification {
         this.nextAttemptAt = now;
         this.lastFailureReason = null;
         this.lastFailureAt = null;
-        this.updatedAt = now;
     }
 
     private static String truncate(String s) {
