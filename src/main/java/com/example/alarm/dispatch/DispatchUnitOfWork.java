@@ -63,7 +63,7 @@ public class DispatchUnitOfWork {
      * @param id 알림 식별자
      */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void finalizeSuccess(String id) {
+    public void finalizeSuccess(Long id) {
         Notification n = repo.lockById(id).orElseThrow(
                 () -> new IllegalStateException("알림이 존재하지 않습니다: " + id));
         if (n.getStatus() != NotificationStatus.IN_PROGRESS) {
@@ -85,7 +85,7 @@ public class DispatchUnitOfWork {
      * @param retryable true면 재시도 정책에 따라 다음 시도 예약, false면 즉시 DEAD_LETTER
      */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void finalizeFailure(String id, String reason, boolean retryable) {
+    public void finalizeFailure(Long id, String reason, boolean retryable) {
         Instant now = Instant.now(clock);
         Notification n = repo.lockById(id).orElseThrow(
                 () -> new IllegalStateException("알림이 존재하지 않습니다: " + id));

@@ -69,7 +69,7 @@ class DeadLetterControllerTest extends AbstractMysqlIntegrationTest {
         dead.markDeadLetter("permanent", Instant.now());
         repo.save(dead);
 
-        mvc.perform(post("/api/admin/dead-letters/" + dead.getId() + "/retry")
+        mvc.perform(post("/api/admin/dead-letters/" + dead.getExternalId() + "/retry")
                         .header("X-User-Id", "admin-1")
                         .header("X-Admin", "true"))
                 .andExpect(status().isOk())

@@ -95,9 +95,9 @@ public class NotificationService {
     }
 
     /**
-     * 알림 ID로 단건 조회. 본인 또는 관리자만 접근 가능.
+     * 외부 노출 ID(external_id)로 알림을 단건 조회. 본인 또는 관리자만 접근 가능.
      *
-     * @param id          알림 ID
+     * @param externalId  외부 노출 ID
      * @param requesterId 호출자 사용자 ID
      * @param isAdmin     관리자 헤더 여부
      * @return 조회된 알림
@@ -105,8 +105,8 @@ public class NotificationService {
      * @throws ForbiddenException            본인이 아니고 관리자도 아닐 때
      */
     @Transactional(readOnly = true)
-    public Notification findById(String id, String requesterId, boolean isAdmin) {
-        Notification n = repo.findById(id).orElseThrow(() -> new NotificationNotFoundException(id));
+    public Notification findByExternalId(String externalId, String requesterId, boolean isAdmin) {
+        Notification n = repo.findByExternalId(externalId).orElseThrow(() -> new NotificationNotFoundException(externalId));
         if (!isAdmin && !n.isOwnedBy(requesterId)) {
             throw new ForbiddenException("본인의 알림만 조회할 수 있습니다");
         }
@@ -151,36 +151,36 @@ public class NotificationService {
      * {@code @Transactional}을 붙이면 충돌 시 트랜잭션이 rollback-only로 마킹되어
      * {@link org.springframework.transaction.UnexpectedRollbackException}이 전파된다.
      *
-     * @param id 알림 ID
+     * @param id internal Long ID
      * @return 읽음 처리된 알림 (또는 이미 읽음 상태였던 알림)
      * @throws NotificationNotFoundException 해당 ID가 없을 때
      */
-    public Notification markRead(String id) {
-        Notification n = repo.findById(id).orElseThrow(() -> new NotificationNotFoundException(id));
+    public Notification markRead(Long id) {
+        Notification n = repo.findById(id).orElseThrow(() -> new NotificationNotFoundException(String.valueOf(id)));
         if (n.isRead()) return n;
         try {
             n.markRead(Instant.now(clock));
             return repo.saveAndFlush(n);
         } catch (ObjectOptimisticLockingFailureException race) {
-            return repo.findById(id).orElseThrow(() -> new NotificationNotFoundException(id));
+            return repo.findById(id).orElseThrow(() -> new NotificationNotFoundException(String.valueOf(id)));
         }
     }
 
     /**
      * 본인 검증 후 알림을 읽음 처리. 권한 검증은 트랜잭션 밖에서 수행.
      *
-     * @param id          알림 ID
+     * @param externalId  외부 노출 ID
      * @param requesterId 호출자 사용자 ID
      * @return 읽음 처리된 알림
      * @throws NotificationNotFoundException 해당 ID가 없을 때
      * @throws ForbiddenException            호출자가 알림의 수신자가 아닐 때
      */
-    public Notification markReadByOwner(String id, String requesterId) {
-        Notification n = repo.findById(id).orElseThrow(() -> new NotificationNotFoundException(id));
+    public Notification markReadByOwner(String externalId, String requesterId) {
+        Notification n = repo.findByExternalId(externalId).orElseThrow(() -> new NotificationNotFoundException(externalId));
         if (!n.isOwnedBy(requesterId)) {
             throw new ForbiddenException("본인의 알림만 읽음 처리할 수 있습니다");
         }
-        return markRead(id);
+        return markRead(n.getId());
     }
 
     /**
@@ -208,8 +208,8 @@ public class NotificationService {
      * @throws IllegalStateException 알림이 DEAD_LETTER가 아닐 때 (도메인 메서드에서 던짐)
      */
     @Transactional
-    public Notification retryDeadLetter(String id) {
-        Notification n = repo.findById(id).orElseThrow(() -> new NotificationNotFoundException(id));
+    public Notification retryDeadLetter(String externalId) {
+        Notification n = repo.findByExternalId(externalId).orElseThrow(() -> new NotificationNotFoundException(externalId));
         n.revive(Instant.now(clock));
         return n;
     }

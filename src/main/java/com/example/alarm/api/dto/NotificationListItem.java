@@ -24,7 +24,7 @@ public record NotificationListItem(
      */
     public static NotificationListItem from(Notification n) {
         return new NotificationListItem(
-                n.getId(), n.getType(), n.getChannel(), n.getStatus(),
+                n.getExternalId(), n.getType(), n.getChannel(), n.getStatus(),
                 n.isRead(), n.getCreatedAt(), n.getUpdatedAt());
     }
 }

@@ -21,7 +21,7 @@ import java.util.Optional;
  * <p>Spring Data JPA가 런타임에 구현체를 생성한다. 발송 워커, 스케줄러, 사용자 조회 세
  * 가지 접근 패턴을 모두 지원한다.
  */
-public interface NotificationRepository extends JpaRepository<Notification, String> {
+public interface NotificationRepository extends JpaRepository<Notification, Long> {
 
     /**
      * dedup 키로 알림을 조회한다.
@@ -30,6 +30,14 @@ public interface NotificationRepository extends JpaRepository<Notification, Stri
      * @return 해당 키의 알림 (없으면 empty)
      */
     Optional<Notification> findByDedupKey(String dedupKey);
+
+    /**
+     * 외부 노출 ID(external_id)로 알림을 조회한다.
+     *
+     * @param externalId 외부 노출 ID (CHAR(16))
+     * @return 해당 외부 ID의 알림 (없으면 empty)
+     */
+    Optional<Notification> findByExternalId(String externalId);
 
     /**
      * 현재 시각 기준으로 발송 대기 중인 {@code PENDING} 알림을 조회한다.
@@ -66,8 +74,8 @@ public interface NotificationRepository extends JpaRepository<Notification, Stri
         ORDER BY claimed_at
         LIMIT :limit
         """, nativeQuery = true)
-    List<String> findStuckClaimedIds(@Param("cutoff") Instant cutoff,
-                                     @Param("limit") int limit);
+    List<Long> findStuckClaimedIds(@Param("cutoff") Instant cutoff,
+                                   @Param("limit") int limit);
 
     /**
      * cutoff보다 오래된 클레임을 일괄 해제하여 {@code PENDING}으로 복귀시킨다.
@@ -134,5 +142,5 @@ public interface NotificationRepository extends JpaRepository<Notification, Stri
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @QueryHints(@QueryHint(name = "jakarta.persistence.lock.timeout", value = "0"))
     @Query("SELECT n FROM Notification n WHERE n.id = :id")
-    Optional<Notification> lockById(@Param("id") String id);
+    Optional<Notification> lockById(@Param("id") Long id);
 }

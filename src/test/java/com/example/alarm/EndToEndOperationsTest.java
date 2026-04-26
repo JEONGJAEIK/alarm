@@ -74,7 +74,7 @@ class EndToEndOperationsTest extends AbstractMysqlIntegrationTest {
 
         Awaitility.await().atMost(Duration.ofSeconds(5))
                 .untilAsserted(() -> assertEquals(NotificationStatus.SUCCEEDED,
-                        repo.findById(id).orElseThrow().getStatus()));
+                        repo.findByExternalId(id).orElseThrow().getStatus()));
     }
 
     @Test
@@ -99,8 +99,8 @@ class EndToEndOperationsTest extends AbstractMysqlIntegrationTest {
 
         Awaitility.await().atMost(Duration.ofSeconds(8))
                 .untilAsserted(() -> assertEquals(NotificationStatus.SUCCEEDED,
-                        repo.findById(id).orElseThrow().getStatus()));
-        assertTrue(repo.findById(id).orElseThrow().getAttempts() >= 1);
+                        repo.findByExternalId(id).orElseThrow().getStatus()));
+        assertTrue(repo.findByExternalId(id).orElseThrow().getAttempts() >= 1);
     }
 
     @Test
@@ -121,7 +121,7 @@ class EndToEndOperationsTest extends AbstractMysqlIntegrationTest {
 
         Awaitility.await().atMost(Duration.ofSeconds(15))
                 .untilAsserted(() -> assertEquals(NotificationStatus.DEAD_LETTER,
-                        repo.findById(id).orElseThrow().getStatus()));
+                        repo.findByExternalId(id).orElseThrow().getStatus()));
     }
 
     @Test

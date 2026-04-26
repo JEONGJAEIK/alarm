@@ -23,8 +23,11 @@ import java.util.UUID;
 public class Notification extends BaseTimeEntity {
 
     @Id
-    @Column(length = 36)
-    private String id;
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(name = "external_id", nullable = false, length = 16, updatable = false)
+    private String externalId;
 
     @Column(name = "recipient_id", nullable = false, length = 100)
     private String recipientId;
@@ -131,7 +134,8 @@ public class Notification extends BaseTimeEntity {
                                        Instant now,
                                        Instant scheduledAt) {
         Notification n = new Notification();
-        n.id = UUID.randomUUID().toString();
+        // n.id는 DB IDENTITY가 INSERT 시 부여
+        n.externalId = generateExternalId();
         n.recipientId = recipientId;
         n.type = type;
         n.channel = channel;
@@ -142,6 +146,14 @@ public class Notification extends BaseTimeEntity {
         n.nextAttemptAt = (scheduledAt != null && scheduledAt.isAfter(now)) ? scheduledAt : now;
         n.read = false;
         return n;
+    }
+
+    /**
+     * 외부 노출 ID(16 hex chars) 생성. {@code UUID.randomUUID()}의 hex 32자 중 앞 16자.
+     * 64-bit entropy로 6억 row 누적까지 1% 이하 충돌 확률.
+     */
+    private static String generateExternalId() {
+        return UUID.randomUUID().toString().replace("-", "").substring(0, 16);
     }
 
     /**

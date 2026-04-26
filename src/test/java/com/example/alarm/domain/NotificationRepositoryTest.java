@@ -64,7 +64,7 @@ class NotificationRepositoryTest extends AbstractMysqlIntegrationTest {
         fresh.claim("worker-Y", now);
         repo.save(fresh);
 
-        List<String> ids = repo.findStuckClaimedIds(now.minusSeconds(60), 50);
+        List<Long> ids = repo.findStuckClaimedIds(now.minusSeconds(60), 50);
 
         assertEquals(List.of(stuck.getId()), ids);
     }

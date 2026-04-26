@@ -50,7 +50,7 @@ public class NotificationController {
                                           @RequestHeader("X-User-Id") String caller,
                                           @RequestHeader(name = "X-Admin", required = false, defaultValue = "false") String adminHeader) {
         boolean isAdmin = "true".equalsIgnoreCase(adminHeader);
-        return NotificationResponse.from(service.findById(id, caller, isAdmin));
+        return NotificationResponse.from(service.findByExternalId(id, caller, isAdmin));
     }
 
     /**

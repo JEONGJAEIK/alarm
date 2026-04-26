@@ -30,7 +30,7 @@ public record NotificationResponse(
      */
     public static NotificationResponse from(Notification n) {
         return new NotificationResponse(
-                n.getId(), n.getRecipientId(), n.getType(), n.getChannel(),
+                n.getExternalId(), n.getRecipientId(), n.getType(), n.getChannel(),
                 n.getStatus(), n.getAttempts(), n.getReferenceData(),
                 n.getNextAttemptAt(), n.getUpdatedAt(),
                 n.getLastFailureReason(), n.isRead(), n.getReadAt());

@@ -26,8 +26,8 @@ public class InAppMessage {
     @Column(name = "recipient_id", nullable = false, length = 100)
     private String recipientId;
 
-    @Column(name = "notification_id", nullable = false, length = 36)
-    private String notificationId;
+    @Column(name = "notification_id", nullable = false)
+    private Long notificationId;
 
     @Column(nullable = false, length = 200)
     private String title;
@@ -41,7 +41,7 @@ public class InAppMessage {
     /**
      * 신규 인앱 메시지 생성. PK는 {@code repo.save} 시 DB의 IDENTITY가 부여한다.
      */
-    public static InAppMessage of(String recipientId, String notificationId,
+    public static InAppMessage of(String recipientId, Long notificationId,
                                   String title, String body, Instant now) {
         InAppMessage m = new InAppMessage();
         m.recipientId = recipientId;
