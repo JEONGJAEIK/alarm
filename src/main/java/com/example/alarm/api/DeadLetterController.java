@@ -28,11 +28,9 @@ public class DeadLetterController {
      */
     @GetMapping
     public List<NotificationListItem> list(@RequestParam(defaultValue = "50") int limit) {
-        var notifications = service.listDeadLetter(limit);
-        var body = notifications.stream()
+        return service.listDeadLetter(limit).stream()
                 .map(NotificationListItem::from)
                 .toList();
-        return body;
     }
 
     /**
@@ -40,8 +38,6 @@ public class DeadLetterController {
      */
     @PostMapping("/{id}/retry")
     public NotificationResponse retry(@PathVariable String id) {
-        var n = service.retryDeadLetter(id);
-        var body = NotificationResponse.from(n);
-        return body;
+        return NotificationResponse.from(service.retryDeadLetter(id));
     }
 }

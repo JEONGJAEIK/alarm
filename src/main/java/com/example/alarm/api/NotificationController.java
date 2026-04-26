@@ -50,9 +50,7 @@ public class NotificationController {
                                           @RequestHeader("X-User-Id") String caller,
                                           @RequestHeader(name = "X-Admin", required = false, defaultValue = "false") String adminHeader) {
         boolean isAdmin = "true".equalsIgnoreCase(adminHeader);
-        var n = service.findById(id, caller, isAdmin);
-        var body = NotificationResponse.from(n);
-        return body;
+        return NotificationResponse.from(service.findById(id, caller, isAdmin));
     }
 
     /**
@@ -65,8 +63,6 @@ public class NotificationController {
     @PatchMapping("/{id}/read")
     public NotificationResponse markRead(@PathVariable String id,
                                          @RequestHeader("X-User-Id") String caller) {
-        var n = service.markReadByOwner(id, caller);
-        var body = NotificationResponse.from(n);
-        return body;
+        return NotificationResponse.from(service.markReadByOwner(id, caller));
     }
 }

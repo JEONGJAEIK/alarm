@@ -38,10 +38,8 @@ public class UserNotificationController {
         if (!userId.equals(caller)) {
             throw new ForbiddenException("본인의 알림만 조회할 수 있습니다");
         }
-        var notifications = service.listForRecipient(userId, read, limit);
-        var body = notifications.stream()
+        return service.listForRecipient(userId, read, limit).stream()
                 .map(NotificationListItem::from)
                 .toList();
-        return body;
     }
 }
