@@ -49,7 +49,7 @@ class DeadLetterControllerTest extends AbstractMysqlIntegrationTest {
                 NotificationChannelType.EMAIL, "evt-dl-1", Map.of(), Instant.now());
         // claim → IN_PROGRESS 후 markDeadLetter
         dead.claim("worker-x", Instant.now());
-        dead.markDeadLetter("permanent", Instant.now());
+        dead.markDeadLetter(Instant.now());
         repo.save(dead);
 
         mvc.perform(get("/api/admin/dead-letters")
@@ -66,7 +66,7 @@ class DeadLetterControllerTest extends AbstractMysqlIntegrationTest {
         Notification dead = Notification.createImmediate("u-dl", NotificationType.PAYMENT_CONFIRMED,
                 NotificationChannelType.EMAIL, "evt-dl-2", Map.of(), Instant.now());
         dead.claim("worker-x", Instant.now());
-        dead.markDeadLetter("permanent", Instant.now());
+        dead.markDeadLetter(Instant.now());
         repo.save(dead);
 
         mvc.perform(post("/api/admin/dead-letters/" + dead.getExternalId() + "/retry")

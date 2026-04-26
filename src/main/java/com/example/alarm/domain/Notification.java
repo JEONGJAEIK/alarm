@@ -63,9 +63,6 @@ public class Notification extends BaseTimeEntity {
     @Column(name = "claimed_by", length = 100)
     private String claimedBy;
 
-    @Column(name = "last_failure_reason", length = 1000)
-    private String lastFailureReason;
-
     @Column(name = "last_failure_at")
     private Instant lastFailureAt;
 
@@ -195,14 +192,14 @@ public class Notification extends BaseTimeEntity {
     /**
      * 발송 실패 후 재시도를 예약한다.
      *
-     * <p>attempts를 1 증가시키고, 클레임을 해제하며, 다음 시도 시각과 실패 사유를 기록한다.
+     * <p>attempts를 1 증가시키고, 클레임을 해제하며, 다음 시도 시각과 마지막 실패 시각을 기록한다.
+     * 실패 사유는 영속화하지 않으며, 호출자가 로그로만 남긴다.
      *
      * @param nextAttemptAt 다음 발송 시도 시각 (UTC)
-     * @param failureReason 실패 사유 (1000자 초과 시 잘림)
      * @param now           현재 시각 (UTC)
      * @throws IllegalStateException IN_PROGRESS 상태가 아닐 때
      */
-    public void scheduleRetry(Instant nextAttemptAt, String failureReason, Instant now) {
+    public void scheduleRetry(Instant nextAttemptAt, Instant now) {
         if (status != NotificationStatus.IN_PROGRESS) {
             throw new IllegalStateException("IN_PROGRESS 상태에서만 재시도 예약할 수 있습니다 (현재: " + status + ")");
         }
@@ -211,7 +208,6 @@ public class Notification extends BaseTimeEntity {
         this.nextAttemptAt = nextAttemptAt;
         this.claimedAt = null;
         this.claimedBy = null;
-        this.lastFailureReason = truncate(failureReason);
         this.lastFailureAt = now;
     }
 
@@ -219,12 +215,13 @@ public class Notification extends BaseTimeEntity {
      * 알림을 {@code DEAD_LETTER} 상태로 전이시킨다.
      *
      * <p>최대 재시도 횟수 초과 시 호출. attempts를 1 증가시키고 클레임을 해제한다.
+     * 상세 실패 사유는 별도 {@code DeadLetter} 엔티티에 영속화되며, 본 메서드는
+     * notification 상태 전이만 책임진다.
      *
-     * @param failureReason 최종 실패 사유 (1000자 초과 시 잘림)
-     * @param now           처리 시각 (UTC)
+     * @param now 처리 시각 (UTC)
      * @throws IllegalStateException IN_PROGRESS 상태가 아닐 때
      */
-    public void markDeadLetter(String failureReason, Instant now) {
+    public void markDeadLetter(Instant now) {
         if (status != NotificationStatus.IN_PROGRESS) {
             throw new IllegalStateException("IN_PROGRESS 상태에서만 DEAD_LETTER로 전이할 수 있습니다 (현재: " + status + ")");
         }
@@ -232,7 +229,6 @@ public class Notification extends BaseTimeEntity {
         this.attempts = this.attempts + 1;
         this.claimedAt = null;
         this.claimedBy = null;
-        this.lastFailureReason = truncate(failureReason);
         this.lastFailureAt = now;
     }
 
@@ -278,7 +274,6 @@ public class Notification extends BaseTimeEntity {
         this.status = NotificationStatus.PENDING;
         this.attempts = 0;
         this.nextAttemptAt = now;
-        this.lastFailureReason = null;
         this.lastFailureAt = null;
     }
 
@@ -293,10 +288,5 @@ public class Notification extends BaseTimeEntity {
      */
     public boolean isOwnedBy(String userId) {
         return this.recipientId.equals(userId);
-    }
-
-    private static String truncate(String s) {
-        if (s == null) return null;
-        return s.length() > 1000 ? s.substring(0, 1000) : s;
     }
 }

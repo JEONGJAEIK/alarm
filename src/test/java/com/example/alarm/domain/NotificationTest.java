@@ -74,16 +74,16 @@ class NotificationTest {
     }
 
     @Test
-    void scheduleRetry는_attempts를_증가시키고_실패_사유를_저장한다() {
+    void scheduleRetry는_attempts를_증가시키고_lastFailureAt을_기록한다() {
         Notification n = Notification.createImmediate("u1", NotificationType.PAYMENT_CONFIRMED,
                 NotificationChannelType.EMAIL, "evt-6", Map.of(), T0);
         n.claim("worker-A", T0);
 
-        n.scheduleRetry(T0.plusSeconds(10), "smtp 503", T0.plusSeconds(2));
+        n.scheduleRetry(T0.plusSeconds(10), T0.plusSeconds(2));
 
         assertEquals(NotificationStatus.PENDING, n.getStatus());
         assertEquals(1, n.getAttempts());
-        assertEquals("smtp 503", n.getLastFailureReason());
+        assertEquals(T0.plusSeconds(2), n.getLastFailureAt());
         assertEquals(T0.plusSeconds(10), n.getNextAttemptAt());
     }
 
@@ -93,11 +93,11 @@ class NotificationTest {
                 NotificationChannelType.EMAIL, "evt-7", Map.of(), T0);
         n.claim("worker-A", T0);
 
-        n.markDeadLetter("permanent", T0.plusSeconds(2));
+        n.markDeadLetter(T0.plusSeconds(2));
 
         assertEquals(NotificationStatus.DEAD_LETTER, n.getStatus());
         assertEquals(1, n.getAttempts());
-        assertEquals("permanent", n.getLastFailureReason());
+        assertEquals(T0.plusSeconds(2), n.getLastFailureAt());
     }
 
     @Test
@@ -132,13 +132,13 @@ class NotificationTest {
         Notification n = Notification.createImmediate("u1", NotificationType.PAYMENT_CONFIRMED,
                 NotificationChannelType.EMAIL, "evt-10", Map.of(), T0);
         n.claim("worker-A", T0);
-        n.markDeadLetter("nope", T0);
+        n.markDeadLetter(T0);
 
         n.revive(T0.plusSeconds(3600));
 
         assertEquals(NotificationStatus.PENDING, n.getStatus());
         assertEquals(0, n.getAttempts());
-        assertNull(n.getLastFailureReason());
+        assertNull(n.getLastFailureAt());
     }
 
     @Test
@@ -163,7 +163,7 @@ class NotificationTest {
                 NotificationChannelType.EMAIL, "evt-13", Map.of(), T0);
 
         assertThrows(IllegalStateException.class,
-                () -> n.scheduleRetry(T0.plusSeconds(10), "reason", T0));
+                () -> n.scheduleRetry(T0.plusSeconds(10), T0));
     }
 
     @Test
@@ -171,6 +171,6 @@ class NotificationTest {
         Notification n = Notification.createImmediate("u1", NotificationType.PAYMENT_CONFIRMED,
                 NotificationChannelType.EMAIL, "evt-14", Map.of(), T0);
 
-        assertThrows(IllegalStateException.class, () -> n.markDeadLetter("fail", T0));
+        assertThrows(IllegalStateException.class, () -> n.markDeadLetter(T0));
     }
 }

@@ -78,10 +78,12 @@ public class DispatchUnitOfWork {
     /**
      * 발송 실패한 알림을 retryable 여부와 attempts에 따라 PENDING(재시도) 또는 DEAD_LETTER로 전이.
      *
-     * <p>락 후 상태가 IN_PROGRESS가 아니면 조용히 스킵.
+     * <p>락 후 상태가 IN_PROGRESS가 아니면 조용히 스킵. 실패 사유는 본 메서드에서
+     * 영속화하지 않고 로그로만 남긴다 — 상세 사유 영속화는 후속 단계에서 별도
+     * {@code DeadLetter} 엔티티가 담당한다.
      *
      * @param id       알림 식별자
-     * @param reason   실패 사유 (1000자 초과 시 도메인 메서드에서 truncate)
+     * @param reason   실패 사유 (로그 출력용)
      * @param retryable true면 재시도 정책에 따라 다음 시도 예약, false면 즉시 DEAD_LETTER
      */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
@@ -95,10 +97,13 @@ public class DispatchUnitOfWork {
         }
         int nextAttempts = n.getAttempts() + 1;
         if (!retryable || retryPolicy.shouldGiveUp(nextAttempts)) {
-            n.markDeadLetter(reason, now);
+            n.markDeadLetter(now);
+            log.warn("notification dead-letter id={} reason={}", id, reason);
         } else {
             Instant nextAt = retryPolicy.nextAttemptAt(nextAttempts, now);
-            n.scheduleRetry(nextAt, reason, now);
+            n.scheduleRetry(nextAt, now);
+            log.warn("notification retry scheduled id={} attempts={} reason={}",
+                    id, nextAttempts, reason);
         }
         repo.saveAndFlush(n);
     }

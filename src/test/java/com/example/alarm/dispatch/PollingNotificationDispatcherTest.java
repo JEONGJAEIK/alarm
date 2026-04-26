@@ -59,7 +59,7 @@ class PollingNotificationDispatcherTest extends AbstractMysqlIntegrationTest {
         Notification after = repo.findById(n.getId()).orElseThrow();
         assertEquals(NotificationStatus.PENDING, after.getStatus());
         assertEquals(1, after.getAttempts());
-        assertTrue(after.getLastFailureReason().contains("smtp 503"));
+        assertNotNull(after.getLastFailureAt());
     }
 
     @Test
