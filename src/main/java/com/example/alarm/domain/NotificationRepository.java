@@ -2,6 +2,7 @@ package com.example.alarm.domain;
 
 import jakarta.persistence.LockModeType;
 import jakarta.persistence.QueryHint;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
@@ -113,11 +114,14 @@ public interface NotificationRepository extends JpaRepository<Notification, Stri
     /**
      * 특정 상태의 알림을 수정일 내림차순으로 페이지 조회한다.
      *
+     * <p>{@link Page} 반환이므로 추가 count 쿼리가 실행되어 {@code totalElements}/{@code totalPages}
+     * 메타가 함께 반환된다. 운영자 화면에서 전체 개수·페이지 수 표시에 사용.
+     *
      * @param status   조회할 알림 상태
      * @param pageable 페이지 정보
-     * @return 해당 상태 알림 목록
+     * @return 해당 상태 알림 페이지 (content + 페이지 메타)
      */
-    List<Notification> findByStatusOrderByUpdatedAtDesc(NotificationStatus status, Pageable pageable);
+    Page<Notification> findByStatusOrderByUpdatedAtDesc(NotificationStatus status, Pageable pageable);
 
     /**
      * ID로 알림을 비관적 쓰기 락을 걸어 조회한다.

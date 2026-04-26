@@ -56,8 +56,9 @@ class DeadLetterControllerTest extends AbstractMysqlIntegrationTest {
                         .header("X-User-Id", "admin-1")
                         .header("X-Admin", "true"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.length()").value(1))
-                .andExpect(jsonPath("$[0].status").value("DEAD_LETTER"));
+                .andExpect(jsonPath("$.content.length()").value(1))
+                .andExpect(jsonPath("$.content[0].status").value("DEAD_LETTER"))
+                .andExpect(jsonPath("$.totalElements").value(1));
     }
 
     @Test

@@ -3,6 +3,7 @@ package com.example.alarm.service;
 import com.example.alarm.domain.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
@@ -186,10 +187,12 @@ public class NotificationService {
      * 데드레터 알림 목록을 최근 갱신 순으로 페이지 조회.
      *
      * <p>페이지·사이즈는 호출자({@code Pageable})가 결정. 정렬은 Repository
-     * 메서드명({@code OrderByUpdatedAtDesc})으로 강제된다.
+     * 메서드명({@code OrderByUpdatedAtDesc})으로 강제된다. 반환 타입이 {@link Page}이므로
+     * {@code totalElements}/{@code totalPages} 메타가 함께 반환되어 운영자 UI의
+     * 페이지네이션 표시에 활용 가능하다.
      */
     @Transactional(readOnly = true)
-    public List<Notification> listDeadLetter(Pageable pageable) {
+    public Page<Notification> listDeadLetter(Pageable pageable) {
         return repo.findByStatusOrderByUpdatedAtDesc(NotificationStatus.DEAD_LETTER, pageable);
     }
 
