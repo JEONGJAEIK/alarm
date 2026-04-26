@@ -24,8 +24,8 @@
 │  NotificationController   (등록, 단건 조회)      │
 │  UserNotificationController (목록 조회)          │
 │  DeadLetterController     (데드레터 관리)         │
+│  AuthInterceptor          (X-User-Id 검증)        │
 │  AdminHeaderInterceptor   (X-Admin 헤더 검증)    │
-│  XUserIdArgumentResolver  (X-User-Id 헤더 인증)  │
 └───────────────────┬─────────────────────────────┘
                     │
                     ▼
@@ -425,7 +425,7 @@ WHERE status = 'IN_PROGRESS'
 - `X-User-Id` 누락 → **401 Unauthorized**
 - 본인이 아닌 사용자의 알림 접근 → **403 Forbidden**
 
-`XUserIdArgumentResolver`가 `@CurrentUser` 파라미터에 헤더 값을 주입하며, 헤더 부재 시 즉시 401을 반환합니다.
+`AuthInterceptor`가 모든 `/api/**` 요청에서 헤더 존재를 검증해 누락 시 401로 응답합니다. 컨트롤러는 `@RequestHeader("X-User-Id")`로 값을 받아 본인 검증·전달에 사용합니다. `/api/admin/**` 경로는 `AuthInterceptor` → `AdminHeaderInterceptor` 순으로 통과하므로 관리자도 X-User-Id가 강제됩니다.
 
 ### 관리자 API
 

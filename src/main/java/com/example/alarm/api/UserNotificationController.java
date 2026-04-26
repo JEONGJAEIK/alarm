@@ -1,6 +1,5 @@
 package com.example.alarm.api;
 
-import com.example.alarm.api.auth.CurrentUser;
 import com.example.alarm.api.dto.NotificationListItem;
 import com.example.alarm.service.ForbiddenException;
 import com.example.alarm.service.NotificationService;
@@ -25,7 +24,7 @@ public class UserNotificationController {
      * 사용자 알림 목록 조회. {@code read} 파라미터로 읽음 여부 필터 가능.
      *
      * @param userId 조회 대상 수신자
-     * @param caller {@code X-User-Id} 헤더로 주입된 호출자 (본인 검증)
+     * @param caller {@code X-User-Id} 헤더의 호출자 (본인 검증)
      * @param read true/false 시 해당 읽음 상태로 필터, 생략 시 전체
      * @param limit 1~200 사이 (서비스 레이어에서 클램프), 기본 50
      * @return 알림 목록 (가장 최근 등록 순)
@@ -33,7 +32,7 @@ public class UserNotificationController {
      */
     @GetMapping
     public List<NotificationListItem> list(@PathVariable String userId,
-                                           @CurrentUser String caller,
+                                           @RequestHeader("X-User-Id") String caller,
                                            @RequestParam(required = false) Boolean read,
                                            @RequestParam(defaultValue = "50") int limit) {
         if (!userId.equals(caller)) {

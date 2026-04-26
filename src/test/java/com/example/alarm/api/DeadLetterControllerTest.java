@@ -30,8 +30,16 @@ class DeadLetterControllerTest extends AbstractMysqlIntegrationTest {
     void clean() { repo.deleteAll(); }
 
     @Test
+    void GET은_X_User_Id_헤더가_없으면_401이다() throws Exception {
+        mvc.perform(get("/api/admin/dead-letters")
+                        .header("X-Admin", "true"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
     void GET은_X_Admin_헤더가_없으면_403이다() throws Exception {
-        mvc.perform(get("/api/admin/dead-letters"))
+        mvc.perform(get("/api/admin/dead-letters")
+                        .header("X-User-Id", "admin-1"))
                 .andExpect(status().isForbidden());
     }
 
@@ -45,6 +53,7 @@ class DeadLetterControllerTest extends AbstractMysqlIntegrationTest {
         repo.save(dead);
 
         mvc.perform(get("/api/admin/dead-letters")
+                        .header("X-User-Id", "admin-1")
                         .header("X-Admin", "true"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(1))
@@ -60,6 +69,7 @@ class DeadLetterControllerTest extends AbstractMysqlIntegrationTest {
         repo.save(dead);
 
         mvc.perform(post("/api/admin/dead-letters/" + dead.getId() + "/retry")
+                        .header("X-User-Id", "admin-1")
                         .header("X-Admin", "true"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("PENDING"))
