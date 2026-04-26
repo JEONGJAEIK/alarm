@@ -105,7 +105,7 @@ public class NotificationService {
     @Transactional(readOnly = true)
     public Notification findById(String id, String requesterId, boolean isAdmin) {
         Notification n = repo.findById(id).orElseThrow(() -> new NotificationNotFoundException(id));
-        if (!isAdmin && !n.getRecipientId().equals(requesterId)) {
+        if (!isAdmin && !n.isOwnedBy(requesterId)) {
             throw new ForbiddenException("본인의 알림만 조회할 수 있습니다");
         }
         return n;
@@ -166,7 +166,7 @@ public class NotificationService {
      */
     public Notification markReadByOwner(String id, String requesterId) {
         Notification n = repo.findById(id).orElseThrow(() -> new NotificationNotFoundException(id));
-        if (!n.getRecipientId().equals(requesterId)) {
+        if (!n.isOwnedBy(requesterId)) {
             throw new ForbiddenException("본인의 알림만 읽음 처리할 수 있습니다");
         }
         return markRead(id);

@@ -270,6 +270,19 @@ public class Notification extends BaseTimeEntity {
         this.lastFailureAt = null;
     }
 
+    /**
+     * 주어진 사용자가 이 알림의 수신자인지 판정.
+     *
+     * <p>인가 정책(관리자 가산 등)은 호출자 책임이며, 이 메서드는 도메인 사실
+     * (recipientId 일치 여부)만 반환한다.
+     *
+     * @param userId 비교 대상 사용자 ID
+     * @return recipientId가 {@code userId}와 같으면 true
+     */
+    public boolean isOwnedBy(String userId) {
+        return this.recipientId.equals(userId);
+    }
+
     private static String truncate(String s) {
         if (s == null) return null;
         return s.length() > 1000 ? s.substring(0, 1000) : s;
