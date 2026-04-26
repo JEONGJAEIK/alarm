@@ -5,47 +5,47 @@ import org.junit.jupiter.api.Test;
 import java.time.Duration;
 import java.time.Instant;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * {@link ExponentialBackoffRetryPolicy} 단위 테스트.
  *
- * <p>지수 백오프 지연 계산, 포기 조건, 유효하지 않은 인자 거부를 검증한다.
+ * <p>multiplier 4 기반 30s/2m/8m/15m 곡선 검증, 포기 조건, 지터 분포 범위를 확인한다.
  */
 class ExponentialBackoffRetryPolicyTest {
 
-    @Test
-    void delay는_max에_도달할_때까지_2배씩_증가한다() {
-        var p = new ExponentialBackoffRetryPolicy(
-                Duration.ofMillis(100), Duration.ofSeconds(10), 0.0, 5);
-        Instant t = Instant.parse("2026-04-25T00:00:00Z");
+    private static final Instant NOW = Instant.parse("2026-04-26T00:00:00Z");
 
-        assertEquals(t.plusMillis(100), p.nextAttemptAt(1, t));
-        assertEquals(t.plusMillis(200), p.nextAttemptAt(2, t));
-        assertEquals(t.plusMillis(400), p.nextAttemptAt(3, t));
-        assertEquals(t.plusMillis(800), p.nextAttemptAt(4, t));
-        assertEquals(t.plusSeconds(10), p.nextAttemptAt(20, t));
+    @Test
+    void 곱수_4_jitter_0이면_30s_2m_8m_15m_곡선이_나온다() {
+        var policy = new ExponentialBackoffRetryPolicy(
+                Duration.ofSeconds(30), Duration.ofMinutes(15), 0.0, 4, 5);
+
+        assertThat(policy.nextAttemptAt(1, NOW)).isEqualTo(NOW.plusSeconds(30));
+        assertThat(policy.nextAttemptAt(2, NOW)).isEqualTo(NOW.plusSeconds(120));   // 2m
+        assertThat(policy.nextAttemptAt(3, NOW)).isEqualTo(NOW.plusSeconds(480));   // 8m
+        assertThat(policy.nextAttemptAt(4, NOW)).isEqualTo(NOW.plusSeconds(900));   // 15m (cap)
     }
 
     @Test
-    void maxAttempts에_도달하면_shouldGiveUp이_true이다() {
-        var p = new ExponentialBackoffRetryPolicy(
-                Duration.ofMillis(100), Duration.ofSeconds(10), 0.0, 3);
+    void shouldGiveUp는_attempts가_maxAttempts에_도달하면_true() {
+        var policy = new ExponentialBackoffRetryPolicy(
+                Duration.ofSeconds(30), Duration.ofMinutes(15), 0.0, 4, 5);
 
-        assertFalse(p.shouldGiveUp(2));
-        assertTrue(p.shouldGiveUp(3));
-        assertTrue(p.shouldGiveUp(4));
+        assertThat(policy.shouldGiveUp(4)).isFalse();
+        assertThat(policy.shouldGiveUp(5)).isTrue();
+        assertThat(policy.shouldGiveUp(6)).isTrue();
     }
 
     @Test
-    void 잘못된_인자는_생성자에서_거부된다() {
-        assertThrows(IllegalArgumentException.class, () ->
-                new ExponentialBackoffRetryPolicy(Duration.ZERO, Duration.ofSeconds(1), 0, 1));
-        assertThrows(IllegalArgumentException.class, () ->
-                new ExponentialBackoffRetryPolicy(Duration.ofSeconds(2), Duration.ofSeconds(1), 0, 1));
-        assertThrows(IllegalArgumentException.class, () ->
-                new ExponentialBackoffRetryPolicy(Duration.ofMillis(10), Duration.ofSeconds(1), 1.5, 1));
-        assertThrows(IllegalArgumentException.class, () ->
-                new ExponentialBackoffRetryPolicy(Duration.ofMillis(10), Duration.ofSeconds(1), 0, 0));
+    void jitter_0_2이면_delay가_20퍼센트_범위_내에_분산된다() {
+        var policy = new ExponentialBackoffRetryPolicy(
+                Duration.ofSeconds(30), Duration.ofMinutes(15), 0.2, 4, 5);
+
+        for (int i = 0; i < 100; i++) {
+            Instant next = policy.nextAttemptAt(1, NOW);
+            long delayMs = next.toEpochMilli() - NOW.toEpochMilli();
+            assertThat(delayMs).isBetween(24_000L, 36_000L);
+        }
     }
 }

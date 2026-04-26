@@ -7,7 +7,7 @@ import java.util.concurrent.ThreadLocalRandom;
 /**
  * 지수 백오프 + 랜덤 지터 방식의 재시도 정책 구현체.
  *
- * <p>delay = min(base * 2^(attempts-1), max) * (1 ± jitterRatio).
+ * <p>delay = min(base * multiplier^(attempts-1), max), 지터 적용 후 {@code [0, max]}로 클램프.
  * 지터는 여러 워커가 동시에 재시도하여 서버를 과부하시키는 thundering herd 문제를 완화한다.
  * 인스턴스는 스레드 안전하다 — 모든 필드가 불변이고 난수 생성에 {@link ThreadLocalRandom}을 사용한다.
  */
@@ -16,6 +16,7 @@ public class ExponentialBackoffRetryPolicy implements RetryPolicy {
     private final long baseMs;
     private final long maxMs;
     private final double jitterRatio;
+    private final long multiplier;
     private final int maxAttempts;
 
     /**
@@ -24,17 +25,21 @@ public class ExponentialBackoffRetryPolicy implements RetryPolicy {
      * @param base         기본 지연 시간 (양수여야 함)
      * @param max          최대 지연 시간 (base 이상이어야 함)
      * @param jitterRatio  지터 비율; 0이면 지터 없음, 1이면 ±100% ({@code [0,1]} 범위)
+     * @param multiplier   지수 곱수 (2 이상). 예: 2이면 base, 2*base, 4*base ...; 4이면 base, 4*base, 16*base ...
      * @param maxAttempts  최대 시도 횟수 (1 이상이어야 함)
      * @throws IllegalArgumentException 인자가 범위를 벗어날 때
      */
-    public ExponentialBackoffRetryPolicy(Duration base, Duration max, double jitterRatio, int maxAttempts) {
+    public ExponentialBackoffRetryPolicy(Duration base, Duration max,
+                                         double jitterRatio, long multiplier, int maxAttempts) {
         if (base.isNegative() || base.isZero()) throw new IllegalArgumentException("base는 0보다 커야 합니다");
         if (max.compareTo(base) < 0) throw new IllegalArgumentException("max는 base 이상이어야 합니다");
         if (jitterRatio < 0 || jitterRatio > 1) throw new IllegalArgumentException("jitterRatio는 [0,1] 범위여야 합니다");
+        if (multiplier < 2) throw new IllegalArgumentException("multiplier는 2 이상이어야 합니다");
         if (maxAttempts < 1) throw new IllegalArgumentException("maxAttempts는 1 이상이어야 합니다");
         this.baseMs = base.toMillis();
         this.maxMs = max.toMillis();
         this.jitterRatio = jitterRatio;
+        this.multiplier = multiplier;
         this.maxAttempts = maxAttempts;
     }
 
@@ -52,12 +57,13 @@ public class ExponentialBackoffRetryPolicy implements RetryPolicy {
         int safe = Math.max(attemptsAfterFailure, 1);
         long pow = baseMs;
         for (int i = 1; i < safe && pow < maxMs; i++) {
-            pow = Math.min(pow * 2, maxMs);
+            pow = Math.min(pow * multiplier, maxMs);
         }
         long delay = Math.min(pow, maxMs);
         if (jitterRatio > 0) {
             long jitter = (long) (delay * jitterRatio);
-            delay = Math.max(0, delay + ThreadLocalRandom.current().nextLong(-jitter, jitter + 1));
+            long jittered = delay + ThreadLocalRandom.current().nextLong(-jitter, jitter + 1);
+            delay = Math.max(0, Math.min(jittered, maxMs));
         }
         return now.plusMillis(delay);
     }

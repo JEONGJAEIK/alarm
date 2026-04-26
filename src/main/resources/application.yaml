@@ -28,6 +28,7 @@ alarm:
     max-attempts: 5
     visibility-timeout-seconds: 60
     sweep-interval-ms: 10000
-    backoff-base-ms: 1000
-    backoff-max-ms: 1800000
+    backoff-base-ms: 30000
+    backoff-max-ms: 900000
     backoff-jitter-ratio: 0.2
+    backoff-multiplier: 4

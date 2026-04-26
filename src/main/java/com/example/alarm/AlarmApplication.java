@@ -61,7 +61,9 @@ public class AlarmApplication {
     public RetryPolicy retryPolicy(DispatchProperties props) {
         return new ExponentialBackoffRetryPolicy(
                 props.backoffBase(), props.backoffMax(),
-                props.getBackoffJitterRatio(), props.getMaxAttempts());
+                props.getBackoffJitterRatio(),
+                props.getBackoffMultiplier(),
+                props.getMaxAttempts());
     }
 
     /**
