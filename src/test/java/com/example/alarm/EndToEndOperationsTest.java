@@ -127,7 +127,7 @@ class EndToEndOperationsTest extends AbstractMysqlIntegrationTest {
     @Test
     void stuck_claim은_sweeper가_복구하고_재처리된다() {
         Instant longAgo = Instant.now().minusSeconds(120);
-        Notification stuck = Notification.create(
+        Notification stuck = Notification.createImmediate(
                 "u-e2e", NotificationType.COURSE_START_D1, NotificationChannelType.EMAIL,
                 "evt-e2e-4", Map.of(), longAgo);
         stuck.claim("dead-pid", longAgo);

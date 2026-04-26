@@ -76,9 +76,11 @@ public class NotificationService {
     }
 
     private Notification insertNew(RegisterCommand cmd, Instant now) {
-        Notification n = Notification.create(
-                cmd.recipientId(), cmd.type(), cmd.channel(),
-                cmd.eventId(), cmd.referenceData(), now, cmd.scheduledAt());
+        Notification n = (cmd.scheduledAt() != null && cmd.scheduledAt().isAfter(now))
+                ? Notification.createScheduled(cmd.recipientId(), cmd.type(), cmd.channel(),
+                        cmd.eventId(), cmd.referenceData(), now, cmd.scheduledAt())
+                : Notification.createImmediate(cmd.recipientId(), cmd.type(), cmd.channel(),
+                        cmd.eventId(), cmd.referenceData(), now);
         try {
             return repo.saveAndFlush(n);
         } catch (DataIntegrityViolationException dup) {

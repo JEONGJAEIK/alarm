@@ -29,7 +29,7 @@ class ScheduledDeliveryTest extends AbstractMysqlIntegrationTest {
     @Test
     void scheduledAt이_미래면_즉시_발송되지_않고_도래_후_처리된다() throws Exception {
         Instant now = Instant.now();
-        Notification future = Notification.create(
+        Notification future = Notification.createScheduled(
                 "u-sched", NotificationType.COURSE_START_D1, NotificationChannelType.EMAIL,
                 "evt-sched-1", Map.of(), now, now.plusMillis(800));
         repo.save(future);

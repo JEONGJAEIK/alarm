@@ -82,7 +82,8 @@ public class Notification {
     private long version;
 
     /**
-     * scheduledAt 없이 즉시 발송 대상 알림을 생성한다.
+     * 즉시 발송 대상 알림을 생성한다. {@code nextAttemptAt = now}로 설정되어
+     * 다음 워커 폴링 틱에 클레임된다.
      *
      * @param recipientId 수신자 식별자
      * @param type        알림 유형
@@ -92,20 +93,18 @@ public class Notification {
      * @param now         생성 시각 (UTC)
      * @return 초기 상태({@code PENDING})의 알림 인스턴스
      */
-    public static Notification create(String recipientId,
-                                      NotificationType type,
-                                      NotificationChannelType channel,
-                                      String eventId,
-                                      Map<String, Object> referenceData,
-                                      Instant now) {
+    public static Notification createImmediate(String recipientId,
+                                               NotificationType type,
+                                               NotificationChannelType channel,
+                                               String eventId,
+                                               Map<String, Object> referenceData,
+                                               Instant now) {
         return create(recipientId, type, channel, eventId, referenceData, now, null);
     }
 
     /**
-     * 예약 발송 시각을 지정하여 알림을 생성한다.
-     *
-     * <p>{@code scheduledAt}이 {@code now}보다 미래이면 {@code nextAttemptAt}을
-     * {@code scheduledAt}으로 설정한다. 그 외에는 즉시 발송 대상이 된다.
+     * 예약 발송 시각을 지정하여 알림을 생성한다. {@code nextAttemptAt = scheduledAt}로
+     * 설정되어 해당 시각 이후의 워커 폴링 틱부터 클레임 대상이 된다.
      *
      * @param recipientId  수신자 식별자
      * @param type         알림 유형
@@ -113,16 +112,30 @@ public class Notification {
      * @param eventId      외부 이벤트 식별자 (dedup 키 파생에 사용)
      * @param referenceData 템플릿 렌더링용 참조 데이터 (null 허용)
      * @param now          생성 시각 (UTC)
-     * @param scheduledAt  예약 발송 시각 (null이면 즉시 발송)
+     * @param scheduledAt  예약 발송 시각 (반드시 {@code now}보다 미래)
      * @return 초기 상태({@code PENDING})의 알림 인스턴스
+     * @throws IllegalArgumentException scheduledAt이 null이거나 now 이전·동일할 때
      */
-    public static Notification create(String recipientId,
-                                      NotificationType type,
-                                      NotificationChannelType channel,
-                                      String eventId,
-                                      Map<String, Object> referenceData,
-                                      Instant now,
-                                      Instant scheduledAt) {
+    public static Notification createScheduled(String recipientId,
+                                               NotificationType type,
+                                               NotificationChannelType channel,
+                                               String eventId,
+                                               Map<String, Object> referenceData,
+                                               Instant now,
+                                               Instant scheduledAt) {
+        if (scheduledAt == null || !scheduledAt.isAfter(now)) {
+            throw new IllegalArgumentException("scheduledAt은 now보다 미래여야 합니다");
+        }
+        return create(recipientId, type, channel, eventId, referenceData, now, scheduledAt);
+    }
+
+    private static Notification create(String recipientId,
+                                       NotificationType type,
+                                       NotificationChannelType channel,
+                                       String eventId,
+                                       Map<String, Object> referenceData,
+                                       Instant now,
+                                       Instant scheduledAt) {
         Notification n = new Notification();
         n.id = UUID.randomUUID().toString();
         n.recipientId = recipientId;

@@ -35,7 +35,7 @@ class PollingNotificationDispatcherTest extends AbstractMysqlIntegrationTest {
 
     @Test
     void 정상_발송은_SUCCEEDED로_전이된다() {
-        Notification n = repo.save(Notification.create("u1", NotificationType.PAYMENT_CONFIRMED,
+        Notification n = repo.save(Notification.createImmediate("u1", NotificationType.PAYMENT_CONFIRMED,
                 NotificationChannelType.EMAIL, "evt-d1", Map.of(),
                 Instant.now().minusSeconds(1)));
         doNothing().when(emailChannel).deliver(any());
@@ -49,7 +49,7 @@ class PollingNotificationDispatcherTest extends AbstractMysqlIntegrationTest {
 
     @Test
     void retryable_실패는_PENDING_유지하고_attempts를_증가시킨다() {
-        Notification n = repo.save(Notification.create("u1", NotificationType.PAYMENT_CONFIRMED,
+        Notification n = repo.save(Notification.createImmediate("u1", NotificationType.PAYMENT_CONFIRMED,
                 NotificationChannelType.EMAIL, "evt-d2", Map.of(),
                 Instant.now().minusSeconds(1)));
         doThrow(new ChannelDeliveryException("smtp 503", true)).when(emailChannel).deliver(any());
@@ -64,7 +64,7 @@ class PollingNotificationDispatcherTest extends AbstractMysqlIntegrationTest {
 
     @Test
     void nonRetryable_실패는_즉시_DEAD_LETTER로_전이된다() {
-        Notification n = repo.save(Notification.create("u1", NotificationType.PAYMENT_CONFIRMED,
+        Notification n = repo.save(Notification.createImmediate("u1", NotificationType.PAYMENT_CONFIRMED,
                 NotificationChannelType.EMAIL, "evt-d3", Map.of(),
                 Instant.now().minusSeconds(1)));
         doThrow(new ChannelDeliveryException("invalid address", false)).when(emailChannel).deliver(any());
@@ -77,7 +77,7 @@ class PollingNotificationDispatcherTest extends AbstractMysqlIntegrationTest {
 
     @Test
     void 예상하지_못한_예외는_retryable로_처리된다() {
-        Notification n = repo.save(Notification.create("u1", NotificationType.PAYMENT_CONFIRMED,
+        Notification n = repo.save(Notification.createImmediate("u1", NotificationType.PAYMENT_CONFIRMED,
                 NotificationChannelType.EMAIL, "evt-d4", Map.of(),
                 Instant.now().minusSeconds(1)));
         doThrow(new RuntimeException("kaboom")).when(emailChannel).deliver(any());

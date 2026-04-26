@@ -26,7 +26,7 @@ class NotificationServiceMarkReadTest extends AbstractMysqlIntegrationTest {
 
     @Test
     void 동시_읽음_처리는_멱등하게_수렴한다() throws Exception {
-        Notification n = repo.save(Notification.create("u-r", NotificationType.PAYMENT_CONFIRMED,
+        Notification n = repo.save(Notification.createImmediate("u-r", NotificationType.PAYMENT_CONFIRMED,
                 NotificationChannelType.IN_APP, "evt-r1", Map.of(), Instant.now()));
 
         int threadCount = 16;

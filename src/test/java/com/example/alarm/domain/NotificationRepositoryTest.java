@@ -29,7 +29,7 @@ class NotificationRepositoryTest extends AbstractMysqlIntegrationTest {
     @Test
     void findByDedupKey는_저장된_알림을_반환한다() {
         Instant t = Instant.parse("2026-04-25T10:00:00Z");
-        Notification n = Notification.create("u1", NotificationType.PAYMENT_CONFIRMED,
+        Notification n = Notification.createImmediate("u1", NotificationType.PAYMENT_CONFIRMED,
                 NotificationChannelType.EMAIL, "evt-1", Map.of(), t);
         repo.save(n);
 
@@ -39,9 +39,9 @@ class NotificationRepositoryTest extends AbstractMysqlIntegrationTest {
     @Test
     void findDuePending은_due한_행만_nextAttemptAt_순으로_반환한다() {
         Instant now = Instant.parse("2026-04-25T10:00:00Z");
-        Notification due = Notification.create("u1", NotificationType.PAYMENT_CONFIRMED,
+        Notification due = Notification.createImmediate("u1", NotificationType.PAYMENT_CONFIRMED,
                 NotificationChannelType.EMAIL, "evt-due", Map.of(), now.minusSeconds(5));
-        Notification future = Notification.create("u1", NotificationType.PAYMENT_CONFIRMED,
+        Notification future = Notification.createScheduled("u1", NotificationType.PAYMENT_CONFIRMED,
                 NotificationChannelType.EMAIL, "evt-future", Map.of(), now, now.plusSeconds(60));
         repo.saveAll(List.of(due, future));
 
@@ -54,12 +54,12 @@ class NotificationRepositoryTest extends AbstractMysqlIntegrationTest {
     @Test
     void findStuckClaimedIds는_cutoff_이전_IN_PROGRESS_행을_반환한다() {
         Instant now = Instant.parse("2026-04-25T10:00:00Z");
-        Notification stuck = Notification.create("u1", NotificationType.PAYMENT_CONFIRMED,
+        Notification stuck = Notification.createImmediate("u1", NotificationType.PAYMENT_CONFIRMED,
                 NotificationChannelType.EMAIL, "evt-stuck", Map.of(), now);
         stuck.claim("worker-X", now.minusSeconds(120));
         repo.save(stuck);
 
-        Notification fresh = Notification.create("u1", NotificationType.PAYMENT_CONFIRMED,
+        Notification fresh = Notification.createImmediate("u1", NotificationType.PAYMENT_CONFIRMED,
                 NotificationChannelType.EMAIL, "evt-fresh", Map.of(), now);
         fresh.claim("worker-Y", now);
         repo.save(fresh);
@@ -72,9 +72,9 @@ class NotificationRepositoryTest extends AbstractMysqlIntegrationTest {
     @Test
     void 사용자별_조회는_read_플래그로_필터링된다() {
         Instant t = Instant.parse("2026-04-25T10:00:00Z");
-        Notification unread = Notification.create("u1", NotificationType.PAYMENT_CONFIRMED,
+        Notification unread = Notification.createImmediate("u1", NotificationType.PAYMENT_CONFIRMED,
                 NotificationChannelType.IN_APP, "evt-a", Map.of(), t);
-        Notification read = Notification.create("u1", NotificationType.PAYMENT_CONFIRMED,
+        Notification read = Notification.createImmediate("u1", NotificationType.PAYMENT_CONFIRMED,
                 NotificationChannelType.IN_APP, "evt-b", Map.of(), t);
         read.markRead(t);
         repo.saveAll(List.of(unread, read));

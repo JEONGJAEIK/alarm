@@ -18,7 +18,7 @@ class NotificationTest {
 
     @Test
     void create는_PENDING과_attempts_0으로_초기화한다() {
-        Notification n = Notification.create("u1", NotificationType.PAYMENT_CONFIRMED,
+        Notification n = Notification.createImmediate("u1", NotificationType.PAYMENT_CONFIRMED,
                 NotificationChannelType.EMAIL, "evt-1", Map.of("a", 1), T0);
 
         assertEquals(NotificationStatus.PENDING, n.getStatus());
@@ -32,7 +32,7 @@ class NotificationTest {
     @Test
     void 미래_scheduledAt이_있으면_nextAttemptAt에_반영된다() {
         Instant future = T0.plusSeconds(3600);
-        Notification n = Notification.create("u1", NotificationType.PAYMENT_CONFIRMED,
+        Notification n = Notification.createScheduled("u1", NotificationType.PAYMENT_CONFIRMED,
                 NotificationChannelType.EMAIL, "evt-2", Map.of(), T0, future);
 
         assertEquals(future, n.getNextAttemptAt());
@@ -40,7 +40,7 @@ class NotificationTest {
 
     @Test
     void claim은_PENDING을_IN_PROGRESS로_전이시킨다() {
-        Notification n = Notification.create("u1", NotificationType.PAYMENT_CONFIRMED,
+        Notification n = Notification.createImmediate("u1", NotificationType.PAYMENT_CONFIRMED,
                 NotificationChannelType.EMAIL, "evt-3", Map.of(), T0);
         Instant t1 = T0.plusSeconds(1);
 
@@ -53,7 +53,7 @@ class NotificationTest {
 
     @Test
     void claim은_PENDING이_아닌_상태에서_거부된다() {
-        Notification n = Notification.create("u1", NotificationType.PAYMENT_CONFIRMED,
+        Notification n = Notification.createImmediate("u1", NotificationType.PAYMENT_CONFIRMED,
                 NotificationChannelType.EMAIL, "evt-4", Map.of(), T0);
         n.claim("worker-A", T0);
 
@@ -62,7 +62,7 @@ class NotificationTest {
 
     @Test
     void markSucceeded는_claim_정보를_정리한다() {
-        Notification n = Notification.create("u1", NotificationType.PAYMENT_CONFIRMED,
+        Notification n = Notification.createImmediate("u1", NotificationType.PAYMENT_CONFIRMED,
                 NotificationChannelType.EMAIL, "evt-5", Map.of(), T0);
         n.claim("worker-A", T0);
 
@@ -75,7 +75,7 @@ class NotificationTest {
 
     @Test
     void scheduleRetry는_attempts를_증가시키고_실패_사유를_저장한다() {
-        Notification n = Notification.create("u1", NotificationType.PAYMENT_CONFIRMED,
+        Notification n = Notification.createImmediate("u1", NotificationType.PAYMENT_CONFIRMED,
                 NotificationChannelType.EMAIL, "evt-6", Map.of(), T0);
         n.claim("worker-A", T0);
 
@@ -89,7 +89,7 @@ class NotificationTest {
 
     @Test
     void markDeadLetter는_DEAD_LETTER로_전이시킨다() {
-        Notification n = Notification.create("u1", NotificationType.PAYMENT_CONFIRMED,
+        Notification n = Notification.createImmediate("u1", NotificationType.PAYMENT_CONFIRMED,
                 NotificationChannelType.EMAIL, "evt-7", Map.of(), T0);
         n.claim("worker-A", T0);
 
@@ -102,7 +102,7 @@ class NotificationTest {
 
     @Test
     void releaseStuckClaim은_PENDING으로_복귀하면서_attempts를_증가시키지_않는다() {
-        Notification n = Notification.create("u1", NotificationType.PAYMENT_CONFIRMED,
+        Notification n = Notification.createImmediate("u1", NotificationType.PAYMENT_CONFIRMED,
                 NotificationChannelType.EMAIL, "evt-8", Map.of(), T0);
         n.claim("worker-A", T0);
 
@@ -115,7 +115,7 @@ class NotificationTest {
 
     @Test
     void markRead는_읽음_플래그와_시각을_한_번만_기록한다() {
-        Notification n = Notification.create("u1", NotificationType.PAYMENT_CONFIRMED,
+        Notification n = Notification.createImmediate("u1", NotificationType.PAYMENT_CONFIRMED,
                 NotificationChannelType.IN_APP, "evt-9", Map.of(), T0);
 
         n.markRead(T0.plusSeconds(1));
@@ -129,7 +129,7 @@ class NotificationTest {
 
     @Test
     void revive는_attempts와_status를_초기화한다() {
-        Notification n = Notification.create("u1", NotificationType.PAYMENT_CONFIRMED,
+        Notification n = Notification.createImmediate("u1", NotificationType.PAYMENT_CONFIRMED,
                 NotificationChannelType.EMAIL, "evt-10", Map.of(), T0);
         n.claim("worker-A", T0);
         n.markDeadLetter("nope", T0);
@@ -143,7 +143,7 @@ class NotificationTest {
 
     @Test
     void revive는_DEAD_LETTER가_아닌_상태에서_거부된다() {
-        Notification n = Notification.create("u1", NotificationType.PAYMENT_CONFIRMED,
+        Notification n = Notification.createImmediate("u1", NotificationType.PAYMENT_CONFIRMED,
                 NotificationChannelType.EMAIL, "evt-11", Map.of(), T0);
 
         assertThrows(IllegalStateException.class, () -> n.revive(T0));
@@ -151,7 +151,7 @@ class NotificationTest {
 
     @Test
     void markSucceeded는_IN_PROGRESS가_아니면_거부된다() {
-        Notification n = Notification.create("u1", NotificationType.PAYMENT_CONFIRMED,
+        Notification n = Notification.createImmediate("u1", NotificationType.PAYMENT_CONFIRMED,
                 NotificationChannelType.EMAIL, "evt-12", Map.of(), T0);
 
         assertThrows(IllegalStateException.class, () -> n.markSucceeded(T0));
@@ -159,7 +159,7 @@ class NotificationTest {
 
     @Test
     void scheduleRetry는_IN_PROGRESS가_아니면_거부된다() {
-        Notification n = Notification.create("u1", NotificationType.PAYMENT_CONFIRMED,
+        Notification n = Notification.createImmediate("u1", NotificationType.PAYMENT_CONFIRMED,
                 NotificationChannelType.EMAIL, "evt-13", Map.of(), T0);
 
         assertThrows(IllegalStateException.class,
@@ -168,7 +168,7 @@ class NotificationTest {
 
     @Test
     void markDeadLetter는_IN_PROGRESS가_아니면_거부된다() {
-        Notification n = Notification.create("u1", NotificationType.PAYMENT_CONFIRMED,
+        Notification n = Notification.createImmediate("u1", NotificationType.PAYMENT_CONFIRMED,
                 NotificationChannelType.EMAIL, "evt-14", Map.of(), T0);
 
         assertThrows(IllegalStateException.class, () -> n.markDeadLetter("fail", T0));

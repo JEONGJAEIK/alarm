@@ -45,7 +45,7 @@ class DeadLetterControllerTest extends AbstractMysqlIntegrationTest {
 
     @Test
     void GET은_DEAD_LETTER_상태_알림만_반환한다() throws Exception {
-        Notification dead = Notification.create("u-dl", NotificationType.PAYMENT_CONFIRMED,
+        Notification dead = Notification.createImmediate("u-dl", NotificationType.PAYMENT_CONFIRMED,
                 NotificationChannelType.EMAIL, "evt-dl-1", Map.of(), Instant.now());
         // claim → IN_PROGRESS 후 markDeadLetter
         dead.claim("worker-x", Instant.now());
@@ -62,7 +62,7 @@ class DeadLetterControllerTest extends AbstractMysqlIntegrationTest {
 
     @Test
     void POST_retry는_DEAD_LETTER를_PENDING으로_되살린다() throws Exception {
-        Notification dead = Notification.create("u-dl", NotificationType.PAYMENT_CONFIRMED,
+        Notification dead = Notification.createImmediate("u-dl", NotificationType.PAYMENT_CONFIRMED,
                 NotificationChannelType.EMAIL, "evt-dl-2", Map.of(), Instant.now());
         dead.claim("worker-x", Instant.now());
         dead.markDeadLetter("permanent", Instant.now());

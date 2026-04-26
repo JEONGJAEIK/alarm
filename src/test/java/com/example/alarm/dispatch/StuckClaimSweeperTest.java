@@ -25,7 +25,7 @@ class StuckClaimSweeperTest extends AbstractMysqlIntegrationTest {
     @Test
     void visibility_timeout_초과한_IN_PROGRESS_행을_PENDING으로_되돌린다() {
         Instant longAgo = Instant.now().minusSeconds(120);
-        Notification stuck = Notification.create("u1", NotificationType.PAYMENT_CONFIRMED,
+        Notification stuck = Notification.createImmediate("u1", NotificationType.PAYMENT_CONFIRMED,
                 NotificationChannelType.EMAIL, "evt-stuck-1", Map.of(), longAgo);
         stuck.claim("dead-worker", longAgo);
         repo.save(stuck);
@@ -41,7 +41,7 @@ class StuckClaimSweeperTest extends AbstractMysqlIntegrationTest {
 
     @Test
     void 최근_클레임_행은_그대로_유지한다() {
-        Notification fresh = Notification.create("u1", NotificationType.PAYMENT_CONFIRMED,
+        Notification fresh = Notification.createImmediate("u1", NotificationType.PAYMENT_CONFIRMED,
                 NotificationChannelType.EMAIL, "evt-stuck-2", Map.of(), Instant.now());
         fresh.claim("live-worker", Instant.now());
         repo.save(fresh);
