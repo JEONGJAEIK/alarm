@@ -16,7 +16,7 @@ public class ExponentialBackoffRetryPolicy implements RetryPolicy {
     private final long baseMs;
     private final long maxMs;
     private final double jitterRatio;
-    private final long multiplier;
+    private final int multiplier;
     private final int maxAttempts;
 
     /**
@@ -30,7 +30,7 @@ public class ExponentialBackoffRetryPolicy implements RetryPolicy {
      * @throws IllegalArgumentException 인자가 범위를 벗어날 때
      */
     public ExponentialBackoffRetryPolicy(Duration base, Duration max,
-                                         double jitterRatio, long multiplier, int maxAttempts) {
+                                         double jitterRatio, int multiplier, int maxAttempts) {
         if (base.isNegative() || base.isZero()) throw new IllegalArgumentException("base는 0보다 커야 합니다");
         if (max.compareTo(base) < 0) throw new IllegalArgumentException("max는 base 이상이어야 합니다");
         if (jitterRatio < 0 || jitterRatio > 1) throw new IllegalArgumentException("jitterRatio는 [0,1] 범위여야 합니다");
@@ -57,6 +57,7 @@ public class ExponentialBackoffRetryPolicy implements RetryPolicy {
         int safe = Math.max(attemptsAfterFailure, 1);
         long pow = baseMs;
         for (int i = 1; i < safe && pow < maxMs; i++) {
+            if (pow > maxMs / multiplier) { pow = maxMs; break; }
             pow = Math.min(pow * multiplier, maxMs);
         }
         long delay = Math.min(pow, maxMs);

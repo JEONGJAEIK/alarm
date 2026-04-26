@@ -25,7 +25,7 @@ public class DispatchProperties {
     private long backoffBaseMs = 1_000;
     private long backoffMaxMs = 30L * 60 * 1000;
     private double backoffJitterRatio = 0.2;
-    private long backoffMultiplier = 2;
+    private int backoffMultiplier = 2;
     private int executorAwaitSeconds = 30;
 
     /**

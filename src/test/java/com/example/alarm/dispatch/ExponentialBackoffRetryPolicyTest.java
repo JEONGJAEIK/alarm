@@ -6,6 +6,7 @@ import java.time.Duration;
 import java.time.Instant;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * {@link ExponentialBackoffRetryPolicy} 단위 테스트.
@@ -47,5 +48,29 @@ class ExponentialBackoffRetryPolicyTest {
             long delayMs = next.toEpochMilli() - NOW.toEpochMilli();
             assertThat(delayMs).isBetween(24_000L, 36_000L);
         }
+    }
+
+    @Test
+    void 잘못된_인자는_생성자에서_거부된다() {
+        // base가 0 이하
+        assertThatThrownBy(() -> new ExponentialBackoffRetryPolicy(
+                Duration.ZERO, Duration.ofMinutes(15), 0.2, 4, 5))
+                .isInstanceOf(IllegalArgumentException.class);
+        // max가 base 미만
+        assertThatThrownBy(() -> new ExponentialBackoffRetryPolicy(
+                Duration.ofMinutes(20), Duration.ofMinutes(15), 0.2, 4, 5))
+                .isInstanceOf(IllegalArgumentException.class);
+        // jitterRatio 범위 밖
+        assertThatThrownBy(() -> new ExponentialBackoffRetryPolicy(
+                Duration.ofSeconds(30), Duration.ofMinutes(15), 1.5, 4, 5))
+                .isInstanceOf(IllegalArgumentException.class);
+        // multiplier < 2
+        assertThatThrownBy(() -> new ExponentialBackoffRetryPolicy(
+                Duration.ofSeconds(30), Duration.ofMinutes(15), 0.2, 1, 5))
+                .isInstanceOf(IllegalArgumentException.class);
+        // maxAttempts < 1
+        assertThatThrownBy(() -> new ExponentialBackoffRetryPolicy(
+                Duration.ofSeconds(30), Duration.ofMinutes(15), 0.2, 4, 0))
+                .isInstanceOf(IllegalArgumentException.class);
     }
 }
