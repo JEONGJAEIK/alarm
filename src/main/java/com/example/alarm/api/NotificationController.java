@@ -33,7 +33,8 @@ public class NotificationController {
     public ResponseEntity<NotificationResponse> create(@RequestHeader("X-User-Id") String caller,
                                                        @RequestBody @Valid CreateNotificationRequest req) {
         var n = service.register(req.toCommand());
-        return ResponseEntity.accepted().body(NotificationResponse.from(n));
+        var body = NotificationResponse.from(n);
+        return ResponseEntity.accepted().body(body);
     }
 
     /**
@@ -49,7 +50,9 @@ public class NotificationController {
                                           @RequestHeader("X-User-Id") String caller,
                                           @RequestHeader(name = "X-Admin", required = false, defaultValue = "false") String adminHeader) {
         boolean isAdmin = "true".equalsIgnoreCase(adminHeader);
-        return NotificationResponse.from(service.findById(id, caller, isAdmin));
+        var n = service.findById(id, caller, isAdmin);
+        var body = NotificationResponse.from(n);
+        return body;
     }
 
     /**
@@ -62,6 +65,8 @@ public class NotificationController {
     @PatchMapping("/{id}/read")
     public NotificationResponse markRead(@PathVariable String id,
                                          @RequestHeader("X-User-Id") String caller) {
-        return NotificationResponse.from(service.markReadByOwner(id, caller));
+        var n = service.markReadByOwner(id, caller);
+        var body = NotificationResponse.from(n);
+        return body;
     }
 }
