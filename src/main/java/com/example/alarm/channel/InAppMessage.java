@@ -6,10 +6,12 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.time.Instant;
-import java.util.UUID;
 
 /**
  * 인앱 알림 inbox의 단일 메시지 행. {@link InAppChannel#deliver}가 INSERT한다.
+ *
+ * <p>외부 노출이 없는 inbox 데이터이므로 PK는 {@code BIGINT AUTO_INCREMENT}.
+ * sequential append로 InnoDB 클러스터 인덱스의 page split을 회피해 INSERT 효율이 높다.
  */
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
@@ -18,8 +20,8 @@ import java.util.UUID;
 public class InAppMessage {
 
     @Id
-    @Column(length = 36)
-    private String id;
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
 
     @Column(name = "recipient_id", nullable = false, length = 100)
     private String recipientId;
@@ -37,12 +39,11 @@ public class InAppMessage {
     private Instant createdAt;
 
     /**
-     * 신규 인앱 메시지 생성. UUID PK + 현재 시각이 부여된다.
+     * 신규 인앱 메시지 생성. PK는 {@code repo.save} 시 DB의 IDENTITY가 부여한다.
      */
     public static InAppMessage of(String recipientId, String notificationId,
                                   String title, String body, Instant now) {
         InAppMessage m = new InAppMessage();
-        m.id = UUID.randomUUID().toString();
         m.recipientId = recipientId;
         m.notificationId = notificationId;
         m.title = title;
