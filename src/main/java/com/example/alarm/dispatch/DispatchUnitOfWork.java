@@ -1,6 +1,5 @@
 package com.example.alarm.dispatch;
 
-import com.example.alarm.config.DispatchProperties;
 import com.example.alarm.domain.Notification;
 import com.example.alarm.domain.NotificationRepository;
 import com.example.alarm.domain.NotificationStatus;
@@ -31,7 +30,6 @@ public class DispatchUnitOfWork {
 
     private final NotificationRepository repo;
     private final RetryPolicy retryPolicy;
-    private final DispatchProperties props;
     private final Clock clock;
 
     /**
@@ -69,7 +67,7 @@ public class DispatchUnitOfWork {
         Notification n = repo.lockById(id).orElseThrow(
                 () -> new IllegalStateException("알림이 존재하지 않습니다: " + id));
         if (n.getStatus() != NotificationStatus.IN_PROGRESS) {
-            log.warn("finalizeSuccess skip — id={} status={} (sweeper race or duplicate call)",
+            log.warn("finalizeSuccess 건너뜀 — id={} status={} (sweeper 경합 또는 중복 호출)",
                     id, n.getStatus());
             return;
         }
@@ -92,7 +90,7 @@ public class DispatchUnitOfWork {
         Notification n = repo.lockById(id).orElseThrow(
                 () -> new IllegalStateException("알림이 존재하지 않습니다: " + id));
         if (n.getStatus() != NotificationStatus.IN_PROGRESS) {
-            log.warn("finalizeFailure skip — id={} status={} reason={}", id, n.getStatus(), reason);
+            log.warn("finalizeFailure 건너뜀 — id={} status={} reason={}", id, n.getStatus(), reason);
             return;
         }
         int nextAttempts = n.getAttempts() + 1;
