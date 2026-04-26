@@ -1,6 +1,6 @@
 # 알림 발송 시스템 — 운영 가이드
 
-> 본 문서는 **비동기 처리 구조 및 재시도 정책 설명**과 **요구사항 해석 및 개선 의견**을 포함하는 채점 자산입니다.
+> 본 문서는 **비동기 처리 구조 및 재시도 정책 설명**과 **요구사항 해석 및 개선 의견**을 포함합니다.
 
 ---
 
@@ -145,8 +145,8 @@
 |----------|------------|
 | PENDING → IN_PROGRESS | `Notification.claim(workerId, now)` |
 | IN_PROGRESS → SUCCEEDED | `Notification.markSucceeded(now)` |
-| IN_PROGRESS → PENDING (재시도 예약) | `Notification.scheduleRetry(nextAttemptAt, reason, now)` |
-| IN_PROGRESS → DEAD_LETTER | `Notification.markDeadLetter(reason, now)` |
+| IN_PROGRESS → PENDING (재시도 예약) | `Notification.scheduleRetry(nextAttemptAt, now)` |
+| IN_PROGRESS → DEAD_LETTER | `Notification.markDeadLetter(now)` |
 | IN_PROGRESS → PENDING (sweeper 복구) | `Notification.releaseStuckClaim(now)` |
 | DEAD_LETTER → PENDING (운영자 재시도) | `Notification.revive(now)` |
 
@@ -244,7 +244,20 @@ delay = min(base × 2^(attempts-1), max) × (1 ± jitterRatio)
 
 ### 운영자 수동 재시도
 
-`POST /api/admin/dead-letters/{id}/retry` 호출 시 `Notification.revive(now)`가 실행됩니다. `attempts`를 **0으로 초기화**하여 재시도 정책이 처음부터 다시 적용됩니다. `last_failure_reason`과 `last_failure_at`도 초기화됩니다.
+`POST /api/admin/dead-letters/{id}/retry` 호출 시 `Notification.revive(now)`가 실행됩니다. `attempts`를 **0으로 초기화**하여 재시도 정책이 처음부터 다시 적용됩니다. `last_failure_at`도 초기화되며, 운영자용 상세 사유는 `notification_dlq.failure_history` JSON 컬럼에 누적 보존됩니다 (revive 이력 포함).
+
+### `notification_dlq` 테이블 (운영자 전용)
+
+DEAD_LETTER로 전이된 알림의 상세 사유와 revive 이력은 별도 `notification_dlq` 테이블에서 관리됩니다. `notification`은 사용자 노출용 라이프사이클 컬럼만 보존하고, 민감하거나 장문일 수 있는 실패 사유는 운영자 전용 테이블에 분리해 두는 형태입니다.
+
+| 컬럼 | 의미 |
+|------|------|
+| `notification_id` | 원본 알림 FK (UNIQUE — 알림 1건당 DLQ 1행) |
+| `failure_history` | JSON 배열. 최대 10건의 `{at, reason, reviveCount}` 항목 보존 |
+| `revive_count` | 운영자 재시도 누적 횟수 |
+| `last_revived_at` / `last_revived_by` | 마지막 revive 시각·운영자 식별자 |
+
+운영 쿼리 예: `SELECT failure_history FROM notification_dlq WHERE notification_id = ?` 로 상세 사유와 revive 이력을 함께 조회.
 
 ---
 
@@ -325,7 +338,7 @@ WHERE status = 'IN_PROGRESS'
 |------|------|
 | 증상 | `GET /api/admin/dead-letters` 응답 건수가 급증 |
 | 원인 | 외부 채널(SMTP 서버 등) 장기 장애 또는 `retryable=false` 예외 다수 발생 |
-| 조치 | 1. 외부 채널 장애 복구 후 `POST /api/admin/dead-letters/{id}/retry` 일괄 호출. 2. `last_failure_reason` 확인하여 코드 버그이면 배포 후 재시도. |
+| 조치 | 1. 외부 채널 장애 복구 후 `POST /api/admin/dead-letters/{id}/retry` 일괄 호출. 2. `notification_dlq.failure_history` JSON 컬럼의 상세 사유를 확인하여 코드 버그이면 배포 후 재시도. |
 
 ### 시나리오 B: 알림 발송 latency 폭증
 
@@ -450,7 +463,7 @@ WHERE status = 'IN_PROGRESS'
 Outbox 패턴과 `REQUIRES_NEW` 트랜잭션 분리로 충족합니다.
 
 - `NotificationService.register()`는 `@Transactional` 없이 `saveAndFlush`의 자체 트랜잭션으로 알림 행을 커밋합니다. **호출자(BE-A)의 트랜잭션 롤백과 완전히 독립적**입니다.
-- 발송 실패는 `last_failure_reason`에 기록되고 재시도 또는 DEAD_LETTER로 처리됩니다. 예외가 단순 무시되지 않습니다.
+- 발송 실패는 `notification_dlq.failure_history` (운영자용 상세 JSON)에 기록되고 재시도 또는 DEAD_LETTER로 처리됩니다. 예외가 단순 무시되지 않습니다.
 - 비즈니스 이벤트 처리(수강신청 저장 등)와 알림 발송은 별도 트랜잭션이므로 한쪽 실패가 다른 쪽에 전파되지 않습니다.
 
 #### "동일한 이벤트에 대해 중복 발송되면 안 됨"
