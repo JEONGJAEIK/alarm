@@ -47,11 +47,4 @@ public class DispatchProperties {
      * @return {@code visibilityTimeoutSeconds} 기반 Duration
      */
     public Duration visibilityTimeout() { return Duration.ofSeconds(visibilityTimeoutSeconds); }
-
-    /**
-     * 디스패처 스레드 풀 graceful shutdown 대기 시간(초)을 반환한다.
-     *
-     * @return {@code executorAwaitSeconds} 값
-     */
-    public int getExecutorAwaitSeconds() { return executorAwaitSeconds; }
 }
