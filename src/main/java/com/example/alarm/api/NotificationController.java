@@ -3,10 +3,8 @@ package com.example.alarm.api;
 import com.example.alarm.api.dto.CreateNotificationRequest;
 import com.example.alarm.api.dto.NotificationResponse;
 import com.example.alarm.service.NotificationService;
-import com.example.alarm.service.NotificationService.RegisterCommand;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -31,13 +29,11 @@ public class NotificationController {
      * @return 202 Accepted + 생성/기존 알림 응답 DTO
      */
     @PostMapping
-    @SuppressWarnings("unused") // caller는 인증 게이트 전용 — 헤더 누락 시 ExceptionHandler가 401 강제
+    @SuppressWarnings("unused") // caller는 인증 게이트 전용 — AuthInterceptor가 401 강제
     public ResponseEntity<NotificationResponse> create(@RequestHeader("X-User-Id") String caller,
                                                        @RequestBody @Valid CreateNotificationRequest req) {
-        var n = service.register(new RegisterCommand(
-                req.recipientId(), req.type(), req.channel(),
-                req.eventId(), req.referenceData(), req.scheduledAt()));
-        return ResponseEntity.status(HttpStatus.ACCEPTED).body(NotificationResponse.from(n));
+        var n = service.register(req.toCommand());
+        return ResponseEntity.accepted().body(NotificationResponse.from(n));
     }
 
     /**
