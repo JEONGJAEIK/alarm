@@ -4,6 +4,7 @@ import com.example.alarm.domain.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -112,21 +113,30 @@ public class NotificationService {
     }
 
     /**
-     * 수신자 ID로 알림 목록을 페이지로 조회한다. 정렬은 {@code createdAt DESC}.
+     * 수신자 ID로 알림 목록을 페이지로 조회한다. 정렬은 Repository 메서드명의 {@code createdAt DESC}.
+     *
+     * <p>요청자({@code requesterId})가 {@code recipientId}와 다르면 본인이 아닌 알림 조회로
+     * 간주해 {@link ForbiddenException}을 던진다. {@code pageable.getPageSize()}는 1~200으로
+     * 클램프되며, 그 외의 page index와 sort는 그대로 사용한다.
      *
      * @param recipientId 수신자 ID
+     * @param requesterId 호출자 사용자 ID (본인 검증)
      * @param read null이면 전체, true/false면 해당 read 상태로 필터
-     * @param limit 1~200 사이로 클램프됨
+     * @param pageable 페이지 정보 (size 1~200으로 클램프됨)
      * @return 알림 엔티티 리스트 (가장 최근 등록 순)
+     * @throws ForbiddenException 호출자가 수신자가 아닐 때
      */
     @Transactional(readOnly = true)
-    public List<Notification> listForRecipient(String recipientId, Boolean read, int limit) {
-        int safe = Math.min(Math.max(limit, 1), 200);
-        var page = PageRequest.of(0, safe);
-        if (read == null) {
-            return repo.findByRecipientIdOrderByCreatedAtDesc(recipientId, page);
+    public List<Notification> listForRecipient(String recipientId, String requesterId, Boolean read, Pageable pageable) {
+        if (!recipientId.equals(requesterId)) {
+            throw new ForbiddenException("본인의 알림만 조회할 수 있습니다");
         }
-        return repo.findByRecipientIdAndReadOrderByCreatedAtDesc(recipientId, read, page);
+        int safeSize = Math.min(Math.max(pageable.getPageSize(), 1), 200);
+        Pageable safe = PageRequest.of(pageable.getPageNumber(), safeSize, pageable.getSort());
+        if (read == null) {
+            return repo.findByRecipientIdOrderByCreatedAtDesc(recipientId, safe);
+        }
+        return repo.findByRecipientIdAndReadOrderByCreatedAtDesc(recipientId, read, safe);
     }
 
     /**
