@@ -3,13 +3,15 @@ package com.example.alarm.service;
 import com.example.alarm.domain.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
 import java.time.Instant;
-import java.util.Map;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 알림 등록·조회·읽음 처리·데드레터 관리의 단일 진입점.
@@ -120,7 +122,7 @@ public class NotificationService {
     @Transactional(readOnly = true)
     public List<Notification> listForRecipient(String recipientId, Boolean read, int limit) {
         int safe = Math.min(Math.max(limit, 1), 200);
-        var page = org.springframework.data.domain.PageRequest.of(0, safe);
+        var page = PageRequest.of(0, safe);
         if (read == null) {
             return repo.findByRecipientIdOrderByCreatedAtDesc(recipientId, page);
         }
@@ -148,7 +150,7 @@ public class NotificationService {
         try {
             n.markRead(Instant.now(clock));
             return repo.saveAndFlush(n);
-        } catch (org.springframework.orm.ObjectOptimisticLockingFailureException race) {
+        } catch (ObjectOptimisticLockingFailureException race) {
             return repo.findById(id).orElseThrow(() -> new NotificationNotFoundException(id));
         }
     }
@@ -176,11 +178,11 @@ public class NotificationService {
      * @param limit 1~200 사이로 클램프됨
      */
     @Transactional(readOnly = true)
-    public java.util.List<Notification> listDeadLetter(int limit) {
+    public List<Notification> listDeadLetter(int limit) {
         int safe = Math.min(Math.max(limit, 1), 200);
         return repo.findByStatusOrderByUpdatedAtDesc(
                 NotificationStatus.DEAD_LETTER,
-                org.springframework.data.domain.PageRequest.of(0, safe));
+                PageRequest.of(0, safe));
     }
 
     /**
