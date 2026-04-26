@@ -3,7 +3,6 @@ package com.example.alarm.service;
 import com.example.alarm.domain.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
@@ -16,10 +15,12 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 알림 등록·조회·읽음 처리·데드레터 관리의 단일 진입점.
+ * 알림 등록·조회·읽음 처리의 단일 진입점.
  *
  * <p>register는 dedup_key UNIQUE 제약을 권위로 멱등 보장. 동시 중복 INSERT 시 패자(loser)는
  * {@link DataIntegrityViolationException}을 받고 기존 행을 재조회한다.
+ *
+ * <p>DLQ(데드레터) 운영 작업은 {@link DeadLetterService}로 분리되어 있다.
  */
 @RequiredArgsConstructor
 @Service
@@ -183,34 +184,4 @@ public class NotificationService {
         return markRead(n.getId());
     }
 
-    /**
-     * 데드레터 알림 목록을 최근 갱신 순으로 페이지 조회.
-     *
-     * <p>페이지·사이즈는 호출자({@code Pageable})가 결정. 정렬은 Repository
-     * 메서드명({@code OrderByUpdatedAtDesc})으로 강제된다. 반환 타입이 {@link Page}이므로
-     * {@code totalElements}/{@code totalPages} 메타가 함께 반환되어 운영자 UI의
-     * 페이지네이션 표시에 활용 가능하다.
-     */
-    @Transactional(readOnly = true)
-    public Page<Notification> listDeadLetter(Pageable pageable) {
-        return repo.findByStatusOrderByUpdatedAtDesc(NotificationStatus.DEAD_LETTER, pageable);
-    }
-
-    /**
-     * 데드레터 알림을 PENDING으로 되살린다(수동 재시도).
-     *
-     * <p>운영자가 외부 문제 해결 후 호출하는 것을 가정하여 attempts를 0으로 초기화한다.
-     *
-     * <p>{@code findById}로 가져온 영속 entity의 변경은 Hibernate dirty checking이
-     * 트랜잭션 커밋 시점에 자동 UPDATE로 반영하므로 명시적 save 호출 불필요.
-     *
-     * @throws NotificationNotFoundException 알림이 없을 때
-     * @throws IllegalStateException 알림이 DEAD_LETTER가 아닐 때 (도메인 메서드에서 던짐)
-     */
-    @Transactional
-    public Notification retryDeadLetter(String externalId) {
-        Notification n = repo.findByExternalId(externalId).orElseThrow(() -> new NotificationNotFoundException(externalId));
-        n.revive(Instant.now(clock));
-        return n;
-    }
 }
