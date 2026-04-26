@@ -1,10 +1,13 @@
 package com.example.alarm.dispatch;
 
+import com.example.alarm.domain.DeadLetter;
+import com.example.alarm.domain.DeadLetterRepository;
 import com.example.alarm.domain.Notification;
 import com.example.alarm.domain.NotificationRepository;
 import com.example.alarm.domain.NotificationStatus;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -29,6 +32,7 @@ import java.util.List;
 public class DispatchUnitOfWork {
 
     private final NotificationRepository repo;
+    private final DeadLetterRepository dlqRepo;
     private final RetryPolicy retryPolicy;
     private final Clock clock;
 
@@ -78,12 +82,12 @@ public class DispatchUnitOfWork {
     /**
      * 발송 실패한 알림을 retryable 여부와 attempts에 따라 PENDING(재시도) 또는 DEAD_LETTER로 전이.
      *
-     * <p>락 후 상태가 IN_PROGRESS가 아니면 조용히 스킵. 실패 사유는 본 메서드에서
-     * 영속화하지 않고 로그로만 남긴다 — 상세 사유 영속화는 후속 단계에서 별도
-     * {@code DeadLetter} 엔티티가 담당한다.
+     * <p>락 후 상태가 IN_PROGRESS가 아니면 조용히 스킵. DEAD_LETTER 분기에서는 같은 트랜잭션
+     * 안에서 {@code notification_dlq} row를 INSERT(첫 진입) 또는 UPDATE(revive 후 재실패)하여
+     * notification 상태 전이와 dlq 영속화가 원자적으로 처리되도록 한다.
      *
      * @param id       알림 식별자
-     * @param reason   실패 사유 (로그 출력용)
+     * @param reason   실패 사유 (로그 + dlq 영속화)
      * @param retryable true면 재시도 정책에 따라 다음 시도 예약, false면 즉시 DEAD_LETTER
      */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
@@ -98,6 +102,7 @@ public class DispatchUnitOfWork {
         int nextAttempts = n.getAttempts() + 1;
         if (!retryable || retryPolicy.shouldGiveUp(nextAttempts)) {
             n.markDeadLetter(now);
+            recordDeadLetter(n.getId(), reason, now);
             log.warn("notification dead-letter id={} reason={}", id, reason);
         } else {
             Instant nextAt = retryPolicy.nextAttemptAt(nextAttempts, now);
@@ -106,5 +111,34 @@ public class DispatchUnitOfWork {
                     id, nextAttempts, reason);
         }
         repo.saveAndFlush(n);
+    }
+
+    /**
+     * DLQ row를 INSERT(첫 진입) 또는 UPDATE(revive 후 재실패)한다.
+     *
+     * <p>{@link #finalizeFailure}의 같은 {@code @Transactional} 컨텍스트 안에서 호출되어야
+     * {@code notification.markDeadLetter}와 원자적으로 commit된다. notification_id UNIQUE
+     * 제약 덕분에 한 알림당 최대 1 row가 보장되며, 이론적 동시 INSERT race가 발생하면
+     * {@link DataIntegrityViolationException}을 catch한 뒤 재조회하여 {@code appendFailure}로
+     * fallback한다.
+     *
+     * @param notificationId notification.id
+     * @param reason         실패 사유
+     * @param now            진입/실패 시각 (UTC)
+     */
+    private void recordDeadLetter(Long notificationId, String reason, Instant now) {
+        var existing = dlqRepo.findByNotificationId(notificationId);
+        if (existing.isPresent()) {
+            existing.get().appendFailure(reason, now);
+            return;
+        }
+        try {
+            dlqRepo.saveAndFlush(DeadLetter.create(notificationId, reason, now));
+        } catch (DataIntegrityViolationException race) {
+            DeadLetter d = dlqRepo.findByNotificationId(notificationId).orElseThrow(
+                    () -> new IllegalStateException(
+                            "dlq UNIQUE 위반 후 재조회 실패 notification_id=" + notificationId, race));
+            d.appendFailure(reason, now);
+        }
     }
 }
