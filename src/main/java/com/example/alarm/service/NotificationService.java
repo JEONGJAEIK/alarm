@@ -183,22 +183,23 @@ public class NotificationService {
     }
 
     /**
-     * 데드레터 알림 목록을 최근 갱신 순으로 조회.
+     * 데드레터 알림 목록을 최근 갱신 순으로 페이지 조회.
      *
-     * @param limit 1~200 사이로 클램프됨
+     * <p>페이지·사이즈는 호출자({@code Pageable})가 결정. 정렬은 Repository
+     * 메서드명({@code OrderByUpdatedAtDesc})으로 강제된다.
      */
     @Transactional(readOnly = true)
-    public List<Notification> listDeadLetter(int limit) {
-        int safe = Math.min(Math.max(limit, 1), 200);
-        return repo.findByStatusOrderByUpdatedAtDesc(
-                NotificationStatus.DEAD_LETTER,
-                PageRequest.of(0, safe));
+    public List<Notification> listDeadLetter(Pageable pageable) {
+        return repo.findByStatusOrderByUpdatedAtDesc(NotificationStatus.DEAD_LETTER, pageable);
     }
 
     /**
      * 데드레터 알림을 PENDING으로 되살린다(수동 재시도).
      *
      * <p>운영자가 외부 문제 해결 후 호출하는 것을 가정하여 attempts를 0으로 초기화한다.
+     *
+     * <p>{@code findById}로 가져온 영속 entity의 변경은 Hibernate dirty checking이
+     * 트랜잭션 커밋 시점에 자동 UPDATE로 반영하므로 명시적 save 호출 불필요.
      *
      * @throws NotificationNotFoundException 알림이 없을 때
      * @throws IllegalStateException 알림이 DEAD_LETTER가 아닐 때 (도메인 메서드에서 던짐)
@@ -207,6 +208,6 @@ public class NotificationService {
     public Notification retryDeadLetter(String id) {
         Notification n = repo.findById(id).orElseThrow(() -> new NotificationNotFoundException(id));
         n.revive(Instant.now(clock));
-        return repo.saveAndFlush(n);
+        return n;
     }
 }

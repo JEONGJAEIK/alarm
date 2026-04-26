@@ -4,6 +4,8 @@ import com.example.alarm.api.dto.NotificationListItem;
 import com.example.alarm.api.dto.NotificationResponse;
 import com.example.alarm.service.NotificationService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -22,13 +24,15 @@ public class DeadLetterController {
     private final NotificationService service;
 
     /**
-     * 데드레터 알림 목록을 최근 갱신 순으로 반환.
+     * 데드레터 알림 목록을 최근 갱신 순으로 페이지 반환.
      *
-     * @param limit 1~200 사이 (서비스 레이어에서 클램프), 기본 50
+     * <p>페이지네이션은 Spring Data {@link Pageable} 표준({@code page}, {@code size} 쿼리 파라미터)을 따른다.
+     * 기본값 {@code page=0, size=50}이며, 정렬은 Repository 메서드명({@code OrderByUpdatedAtDesc})으로 강제된다.
+     * 운영자가 임의의 페이지·사이즈로 데드레터 전체를 탐색할 수 있도록 service 레벨 클램프는 두지 않는다.
      */
     @GetMapping
-    public List<NotificationListItem> list(@RequestParam(defaultValue = "50") int limit) {
-        return service.listDeadLetter(limit).stream()
+    public List<NotificationListItem> list(@PageableDefault(size = 50) Pageable pageable) {
+        return service.listDeadLetter(pageable).stream()
                 .map(NotificationListItem::from)
                 .toList();
     }
