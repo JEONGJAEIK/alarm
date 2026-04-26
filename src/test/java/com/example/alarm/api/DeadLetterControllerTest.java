@@ -97,7 +97,7 @@ class DeadLetterControllerTest extends AbstractMysqlIntegrationTest {
         mvc.perform(post("/api/admin/dead-letters/{id}/retry", externalId)
                         .header("X-User-Id", "admin42")
                         .header("X-Admin-Id", "admin42"))
-                .andExpect(status().is4xxClientError());
+                .andExpect(status().isForbidden());
     }
 
     @Test
