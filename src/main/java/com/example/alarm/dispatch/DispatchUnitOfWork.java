@@ -7,7 +7,6 @@ import com.example.alarm.domain.NotificationRepository;
 import com.example.alarm.domain.NotificationStatus;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -118,9 +117,13 @@ public class DispatchUnitOfWork {
      *
      * <p>{@link #finalizeFailure}의 같은 {@code @Transactional} 컨텍스트 안에서 호출되어야
      * {@code notification.markDeadLetter}와 원자적으로 commit된다. notification_id UNIQUE
-     * 제약 덕분에 한 알림당 최대 1 row가 보장되며, 이론적 동시 INSERT race가 발생하면
-     * {@link DataIntegrityViolationException}을 catch한 뒤 재조회하여 {@code appendFailure}로
-     * fallback한다.
+     * 제약 덕분에 한 알림당 최대 1 row가 보장된다.
+     *
+     * <p>호출 시점에 호출자가 {@code lockById(PESSIMISTIC_WRITE)}로 notification 행 락을
+     * 보유하고 있고, claim 단계의 {@code FOR UPDATE SKIP LOCKED}가 같은 알림에 대한
+     * 다른 워커의 동시 진입을 막으므로, dlq INSERT race는 실제로 발생할 수 없다.
+     * UNIQUE 제약은 잠재적 리팩터링에 대한 마지막 안전망이며, 현재 흐름에서 위반이
+     * 던져지면 트랜잭션을 그대로 롤백시켜 sweeper가 IN_PROGRESS 알림을 재처리하도록 한다.
      *
      * @param notificationId notification.id
      * @param reason         실패 사유
@@ -132,13 +135,6 @@ public class DispatchUnitOfWork {
             existing.get().appendFailure(reason, now);
             return;
         }
-        try {
-            dlqRepo.saveAndFlush(DeadLetter.create(notificationId, reason, now));
-        } catch (DataIntegrityViolationException race) {
-            DeadLetter d = dlqRepo.findByNotificationId(notificationId).orElseThrow(
-                    () -> new IllegalStateException(
-                            "dlq UNIQUE 위반 후 재조회 실패 notification_id=" + notificationId, race));
-            d.appendFailure(reason, now);
-        }
+        dlqRepo.saveAndFlush(DeadLetter.create(notificationId, reason, now));
     }
 }
