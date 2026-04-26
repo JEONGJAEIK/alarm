@@ -33,4 +33,15 @@ class FailureHistoryConverterTest {
     void 빈_리스트는_빈_JSON_배열로_변환된다() {
         assertThat(converter.convertToDatabaseColumn(List.of())).isEqualTo("[]");
     }
+
+    @Test
+    void Instant_나노초_정밀도가_round_trip에_보존된다() {
+        Instant nano = Instant.parse("2026-04-26T10:00:00.123456789Z");
+        FailureEntry in = new FailureEntry(nano, "x", 0);
+
+        String json = converter.convertToDatabaseColumn(List.of(in));
+        Instant out = converter.convertToEntityAttribute(json).get(0).at();
+
+        assertThat(out).isEqualTo(nano);
+    }
 }

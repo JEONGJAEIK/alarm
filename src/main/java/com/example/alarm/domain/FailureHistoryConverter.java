@@ -15,7 +15,9 @@ import java.util.List;
  *
  * <p>JPA가 {@code @Converter}로 관리하는 인스턴스는 인자 없는 생성자로 만들어지므로,
  * Spring 주입에 의존하지 않고 {@link ReferenceDataConverter}와 동일하게 정적
- * {@link ObjectMapper}를 사용한다. Jackson 3.x는 {@link java.time.Instant} 등
+ * {@link ObjectMapper}를 사용한다. 이로 인해 Spring이 구성하는 전역 ObjectMapper 빈
+ * (예: 추가 등록 모듈, 직렬화 정책)과는 분리되어 동작하므로, 본 컨버터의 직렬화 동작은
+ * 이 클래스 내 정적 매퍼 설정에만 의존한다. Jackson 3.x는 {@link java.time.Instant} 등
  * Java 8 시간 타입을 기본 지원한다.
  */
 @Converter
@@ -36,7 +38,8 @@ public class FailureHistoryConverter implements AttributeConverter<List<FailureE
         try {
             return MAPPER.writeValueAsString(attribute == null ? List.of() : attribute);
         } catch (Exception e) {
-            throw new IllegalStateException("failure_history 직렬화 실패", e);
+            throw new IllegalStateException(
+                    "failure_history 직렬화 실패 (size=" + (attribute == null ? 0 : attribute.size()) + ")", e);
         }
     }
 
@@ -53,7 +56,8 @@ public class FailureHistoryConverter implements AttributeConverter<List<FailureE
             if (dbData == null || dbData.isBlank()) return List.of();
             return MAPPER.readValue(dbData, TYPE);
         } catch (Exception e) {
-            throw new IllegalStateException("failure_history 역직렬화 실패: " + dbData, e);
+            throw new IllegalStateException(
+                    "failure_history 역직렬화 실패 (length=" + (dbData == null ? 0 : dbData.length()) + ")", e);
         }
     }
 }
