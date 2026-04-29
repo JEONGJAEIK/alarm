@@ -21,7 +21,7 @@ public class NotificationController {
     private final NotificationService service;
 
     /**
-     * 알림 등록 요청을 받아 outbox에 PENDING 행을 생성한다.
+     * 알림 등록 요청을 받아 작업 큐(notification 테이블)에 PENDING 행을 생성한다.
      *
      * <p>{@code caller}는 {@code X-User-Id} 헤더 인증 게이트 역할만 한다
      * (실제 수신자는 요청 body의 {@code recipientId}이며, 호출자는 보통 시스템 서비스).
