@@ -6,6 +6,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
@@ -37,7 +38,7 @@ public class StuckClaimSweeper {
      * 문제를 해소한다.
      */
     @Scheduled(fixedDelayString = "${alarm.dispatch.sweep-interval-ms}")
-    @Transactional
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     public void scheduledSweep() {
         try {
             int released = sweep();
@@ -52,9 +53,14 @@ public class StuckClaimSweeper {
     /**
      * stuck-claim 한 회차 실행. 직접 호출 가능하도록 public + Transactional.
      *
+     * <p>격리수준은 {@link Isolation#READ_COMMITTED}로 명시 — bulk UPDATE의
+     * {@code WHERE status='IN_PROGRESS' AND claimed_at &lt; cutoff} 조건이 RR에서
+     * 잡을 수 있는 next-key lock 영향을 회피하고, 다른 워커의 동시 INSERT/UPDATE와
+     * 간섭을 최소화한다.
+     *
      * @return 이번 회차에 PENDING으로 되돌린 행 수
      */
-    @Transactional
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     public int sweep() {
         Instant now = Instant.now(Clock.systemUTC());
         Instant cutoff = now.minus(props.visibilityTimeout());

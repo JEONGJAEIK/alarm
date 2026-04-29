@@ -8,6 +8,7 @@ import com.example.alarm.domain.NotificationStatus;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -41,12 +42,17 @@ public class DispatchUnitOfWork {
      * <p>{@code FOR UPDATE SKIP LOCKED} 기반이므로 다중 워커가 동시 호출해도
      * 서로 다른 행만 가져간다.
      *
+     * <p>격리수준은 {@link Isolation#READ_COMMITTED}로 명시 — InnoDB 기본 격리(REPEATABLE READ)
+     * 에서 {@code FOR UPDATE SKIP LOCKED}가 next-key lock(gap 포함)을 걸어 동시 INSERT를
+     * 블로킹할 수 있는 동작을 회피한다. 트랜잭션 종료 시 Spring이 connection의 격리수준을
+     * pool default로 자동 reset하므로 시스템 전체에 누설되지 않는다.
+     *
      * @param workerId  클레임 시도 워커 식별자
      * @param batchSize 한 번에 가져올 최대 행 수
      * @return 클레임된 알림들. REQUIRES_NEW 트랜잭션 commit 후 반환되므로 detached 상태이며,
      *         단순 필드(id, channel, recipientId 등) 읽기만 안전하다.
      */
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    @Transactional(propagation = Propagation.REQUIRES_NEW, isolation = Isolation.READ_COMMITTED)
     public List<Notification> claimBatch(String workerId, int batchSize) {
         Instant now = Instant.now(clock);
         List<Notification> due = repo.findDuePending(now, batchSize);
