@@ -56,6 +56,4 @@ public class DispatchWorker {
             log.error("디스패치 tick 실패", e);
         }
     }
-
-    public String workerId() { return workerId; }
 }

@@ -19,9 +19,7 @@ public class AuthInterceptor implements HandlerInterceptor {
     public static final String HEADER = "X-User-Id";
 
     @Override
-    public boolean preHandle(HttpServletRequest request,
-                             HttpServletResponse response,
-                             Object handler) {
+    public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) {
         String userId = request.getHeader(HEADER);
         if (userId == null || userId.isBlank()) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "X-User-Id 헤더가 필요합니다");

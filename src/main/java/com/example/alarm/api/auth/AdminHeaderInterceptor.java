@@ -18,9 +18,7 @@ public class AdminHeaderInterceptor implements HandlerInterceptor {
     public static final String HEADER = "X-Admin";
 
     @Override
-    public boolean preHandle(HttpServletRequest request,
-                             HttpServletResponse response,
-                             Object handler) {
+    public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) {
         String value = request.getHeader(HEADER);
         if (!"true".equalsIgnoreCase(value)) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "관리자 헤더가 필요합니다");
