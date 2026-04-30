@@ -35,6 +35,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @AutoConfigureMockMvc
 @TestPropertySource(properties = {
         "alarm.dispatch.poll-interval-ms=50",
+        "alarm.dispatch.sweep-interval-ms=200",
         "alarm.dispatch.executor-await-seconds=2",
         "spring.task.scheduling.shutdown.await-termination=true",
         "spring.task.scheduling.shutdown.await-termination-period=2s"
@@ -64,17 +65,15 @@ class EndToEndOperationsTest extends AbstractMysqlIntegrationTest {
                 "eventId", "evt-e2e-1",
                 "referenceData", Map.of()));
 
-        var resp = mvc.perform(post("/api/notifications")
+        mvc.perform(post("/api/notifications")
                         .header("X-User-Id", "system")
                         .contentType(MediaType.APPLICATION_JSON).content(body))
-                .andExpect(status().isAccepted())
-                .andExpect(jsonPath("$.status").value("PENDING"))
-                .andReturn().getResponse().getContentAsString();
-        String id = json.readTree(resp).get("id").asText();
+                .andExpect(status().isAccepted());
 
+        String dedupKey = DedupKeys.derive("evt-e2e-1", NotificationChannelType.EMAIL);
         Awaitility.await().atMost(Duration.ofSeconds(5))
                 .untilAsserted(() -> assertEquals(NotificationStatus.SUCCEEDED,
-                        repo.findByExternalId(id).orElseThrow().getStatus()));
+                        repo.findByDedupKey(dedupKey).orElseThrow().getStatus()));
     }
 
     @Test
@@ -92,15 +91,16 @@ class EndToEndOperationsTest extends AbstractMysqlIntegrationTest {
                 "channel", "EMAIL",
                 "eventId", "evt-e2e-2",
                 "referenceData", Map.of()));
-        String id = json.readTree(mvc.perform(post("/api/notifications")
+        mvc.perform(post("/api/notifications")
                         .header("X-User-Id", "system")
                         .contentType(MediaType.APPLICATION_JSON).content(body))
-                .andReturn().getResponse().getContentAsString()).get("id").asText();
+                .andExpect(status().isAccepted());
 
+        String dedupKey = DedupKeys.derive("evt-e2e-2", NotificationChannelType.EMAIL);
         Awaitility.await().atMost(Duration.ofSeconds(8))
                 .untilAsserted(() -> assertEquals(NotificationStatus.SUCCEEDED,
-                        repo.findByExternalId(id).orElseThrow().getStatus()));
-        assertTrue(repo.findByExternalId(id).orElseThrow().getAttempts() >= 1);
+                        repo.findByDedupKey(dedupKey).orElseThrow().getStatus()));
+        assertTrue(repo.findByDedupKey(dedupKey).orElseThrow().getAttempts() >= 1);
     }
 
     @Test
@@ -114,14 +114,15 @@ class EndToEndOperationsTest extends AbstractMysqlIntegrationTest {
                 "channel", "EMAIL",
                 "eventId", "evt-e2e-3",
                 "referenceData", Map.of()));
-        String id = json.readTree(mvc.perform(post("/api/notifications")
+        mvc.perform(post("/api/notifications")
                         .header("X-User-Id", "system")
                         .contentType(MediaType.APPLICATION_JSON).content(body))
-                .andReturn().getResponse().getContentAsString()).get("id").asText();
+                .andExpect(status().isAccepted());
 
+        String dedupKey = DedupKeys.derive("evt-e2e-3", NotificationChannelType.EMAIL);
         Awaitility.await().atMost(Duration.ofSeconds(15))
                 .untilAsserted(() -> assertEquals(NotificationStatus.DEAD_LETTER,
-                        repo.findByExternalId(id).orElseThrow().getStatus()));
+                        repo.findByDedupKey(dedupKey).orElseThrow().getStatus()));
     }
 
     @Test
@@ -141,7 +142,7 @@ class EndToEndOperationsTest extends AbstractMysqlIntegrationTest {
     }
 
     @Test
-    void 동시_중복_POST는_단일_행으로_수렴한다() throws Exception {
+    void 동시_중복_POST는_단일_행만_생성하고_나머지는_409를_반환한다() throws Exception {
         doNothing().when(emailChannel).deliver(any());
 
         var body = json.writeValueAsString(Map.of(
@@ -151,22 +152,27 @@ class EndToEndOperationsTest extends AbstractMysqlIntegrationTest {
                 "eventId", "evt-e2e-5",
                 "referenceData", Map.of()));
 
-        java.util.concurrent.ExecutorService pool = java.util.concurrent.Executors.newFixedThreadPool(8);
+        int threadCount = 8;
+        java.util.concurrent.ExecutorService pool = java.util.concurrent.Executors.newFixedThreadPool(threadCount);
+        AtomicInteger accepted = new AtomicInteger();
+        AtomicInteger conflict = new AtomicInteger();
         try {
-            var futures = java.util.stream.IntStream.range(0, 8)
+            var futures = java.util.stream.IntStream.range(0, threadCount)
                     .mapToObj(i -> pool.submit(() -> mvc.perform(post("/api/notifications")
                             .header("X-User-Id", "system")
                             .contentType(MediaType.APPLICATION_JSON).content(body))
-                            .andReturn().getResponse().getContentAsString()))
+                            .andReturn().getResponse().getStatus()))
                     .toList();
-            var ids = futures.stream()
-                    .map(f -> {
-                        try { return json.readTree(f.get()).get("id").asText(); }
-                        catch (Exception e) { throw new RuntimeException(e); }
-                    })
-                    .distinct()
-                    .toList();
-            assertEquals(1, ids.size());
+            for (var f : futures) {
+                int status = f.get();
+                if (status == 202) accepted.incrementAndGet();
+                else if (status == 409) conflict.incrementAndGet();
+            }
+            assertEquals(1, accepted.get(), "단일 요청만 202 Accepted여야 한다");
+            assertEquals(threadCount - 1, conflict.get(), "나머지는 409 Conflict여야 한다");
+            String dedupKey = DedupKeys.derive("evt-e2e-5", NotificationChannelType.EMAIL);
+            assertNotNull(repo.findByDedupKey(dedupKey).orElse(null));
+            assertEquals(1, repo.count(), "DB에 단 1개 행만 존재해야 한다");
         } finally {
             pool.shutdown();
             pool.awaitTermination(5, java.util.concurrent.TimeUnit.SECONDS);

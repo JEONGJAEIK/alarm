@@ -18,15 +18,20 @@ class InAppChannelTest extends AbstractMysqlIntegrationTest {
 
     @Autowired InAppChannel channel;
     @Autowired InAppMessageRepository inboxRepo;
+    @Autowired NotificationRepository notificationRepo;
 
     @BeforeEach
-    void clean() { inboxRepo.deleteAll(); }
+    void clean() {
+        inboxRepo.deleteAll();
+        notificationRepo.deleteAll();
+    }
 
     @Test
     void deliver는_인앱_inbox에_행을_저장한다() {
         Notification n = Notification.createImmediate("u-99", NotificationType.ENROLLMENT_COMPLETED,
                 NotificationChannelType.IN_APP, "evt-i1", Map.of("courseId", "c-9"),
                 Instant.parse("2026-04-25T00:00:00Z"));
+        notificationRepo.saveAndFlush(n);
 
         channel.deliver(n);
 

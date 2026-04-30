@@ -19,7 +19,7 @@ alarm:
     batch-size: 10
     max-attempts: 3
     visibility-timeout-seconds: 2
-    sweep-interval-ms: 200
+    sweep-interval-ms: 3600000
     backoff-base-ms: 10
     backoff-max-ms: 200
     backoff-jitter-ratio: 0.0

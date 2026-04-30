@@ -10,8 +10,6 @@ import lombok.NoArgsConstructor;
 /**
  * 알림 타입과 채널 조합별 템플릿. {@code title_template}/{@code body_template}에
  * {@code {{key}}} 형식 placeholder를 작성하면 발송 시 referenceData 값으로 치환된다.
- *
- * <p>외부 노출이 없는 운영자 전용 데이터이므로 PK는 {@code BIGINT AUTO_INCREMENT}.
  */
 @Entity
 @Table(name = "notification_template")

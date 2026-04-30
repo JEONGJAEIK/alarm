@@ -9,6 +9,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import java.time.Instant;
 import java.util.Map;
 import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.IntStream;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -26,28 +27,28 @@ class NotificationServiceRegisterTest extends AbstractMysqlIntegrationTest {
 
     @Test
     void register는_PENDING_상태로_저장한다() {
-        Notification n = service.register(new NotificationService.RegisterCommand(
+        service.register(new NotificationService.RegisterCommand(
                 "u1", NotificationType.PAYMENT_CONFIRMED,
                 NotificationChannelType.EMAIL, "evt-1", Map.of("k", "v"), null));
 
+        String dedupKey = DedupKeys.derive("evt-1", NotificationChannelType.EMAIL);
+        Notification n = repo.findByDedupKey(dedupKey).orElseThrow();
         assertEquals(NotificationStatus.PENDING, n.getStatus());
-        assertNotNull(repo.findById(n.getId()).orElse(null));
     }
 
     @Test
-    void register는_같은_eventId와_channel에_대해_멱등하다() {
+    void register는_같은_eventId와_channel_재호출_시_DuplicateNotificationException을_던진다() {
         var cmd = new NotificationService.RegisterCommand("u1",
                 NotificationType.PAYMENT_CONFIRMED, NotificationChannelType.EMAIL,
                 "evt-2", Map.of(), null);
 
-        Notification first = service.register(cmd);
-        Notification second = service.register(cmd);
-
-        assertEquals(first.getId(), second.getId());
+        service.register(cmd);
+        assertThrows(DuplicateNotificationException.class, () -> service.register(cmd));
+        assertEquals(1, repo.count(), "DB에 단 1개 행만 존재해야 한다");
     }
 
     @Test
-    void register는_동시_중복_요청에도_단일_행만_생성한다() throws Exception {
+    void register는_동시_중복_요청에서_단일_INSERT만_성공하고_나머지는_DuplicateNotificationException() throws Exception {
         var cmd = new NotificationService.RegisterCommand("u1",
                 NotificationType.PAYMENT_CONFIRMED, NotificationChannelType.EMAIL,
                 "evt-3", Map.of(), null);
@@ -55,24 +56,27 @@ class NotificationServiceRegisterTest extends AbstractMysqlIntegrationTest {
         int threadCount = 16;
         ExecutorService pool = Executors.newFixedThreadPool(threadCount);
         CyclicBarrier barrier = new CyclicBarrier(threadCount);
+        AtomicInteger successes = new AtomicInteger();
+        AtomicInteger duplicates = new AtomicInteger();
         try {
             var futures = IntStream.range(0, threadCount).mapToObj(i -> pool.submit(() -> {
                 try {
-                    barrier.await(); // 모든 스레드가 동시에 출발
-                    return service.register(cmd).getId();
+                    barrier.await();
+                    service.register(cmd);
+                    successes.incrementAndGet();
+                } catch (DuplicateNotificationException dup) {
+                    duplicates.incrementAndGet();
                 } catch (Exception e) {
                     throw new RuntimeException(e);
                 }
+                return null;
             })).toList();
 
-            var ids = futures.stream()
-                    .map(f -> {
-                        try { return f.get(5, TimeUnit.SECONDS); }
-                        catch (Exception e) { throw new RuntimeException(e); }
-                    })
-                    .distinct()
-                    .toList();
-            assertEquals(1, ids.size(), "동시 중복 요청은 단일 id로 수렴해야 한다");
+            for (var f : futures) f.get(5, TimeUnit.SECONDS);
+
+            assertEquals(1, successes.get(), "단일 thread만 INSERT에 성공해야 한다");
+            assertEquals(threadCount - 1, duplicates.get(),
+                    "나머지는 DuplicateNotificationException을 받아야 한다");
             assertEquals(1, repo.count(), "DB에 단 1개 행만 존재해야 한다");
         } finally {
             pool.shutdown();
@@ -83,10 +87,12 @@ class NotificationServiceRegisterTest extends AbstractMysqlIntegrationTest {
     @Test
     void register는_미래_scheduledAt을_nextAttemptAt에_반영한다() {
         Instant future = Instant.now().plusSeconds(3600);
-        Notification n = service.register(new NotificationService.RegisterCommand(
+        service.register(new NotificationService.RegisterCommand(
                 "u1", NotificationType.COURSE_START_D1, NotificationChannelType.EMAIL,
                 "evt-sched", Map.of(), future));
 
+        String dedupKey = DedupKeys.derive("evt-sched", NotificationChannelType.EMAIL);
+        Notification n = repo.findByDedupKey(dedupKey).orElseThrow();
         assertTrue(n.getNextAttemptAt().isAfter(Instant.now().plusSeconds(60)));
     }
 }

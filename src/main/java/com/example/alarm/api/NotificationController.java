@@ -2,6 +2,7 @@ package com.example.alarm.api;
 
 import com.example.alarm.api.dto.CreateNotificationRequest;
 import com.example.alarm.api.dto.NotificationResponse;
+import com.example.alarm.service.DuplicateNotificationException;
 import com.example.alarm.service.NotificationService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -25,16 +26,17 @@ public class NotificationController {
      *
      * <p>{@code caller}는 {@code X-User-Id} 헤더 인증 게이트 역할만 한다
      * (실제 수신자는 요청 body의 {@code recipientId}이며, 호출자는 보통 시스템 서비스).
+     * 동일 {@code (eventId, channel)} 조합이 이미 등록되어 있으면 409 Conflict로 응답한다.
      *
-     * @return 202 Accepted + 생성/기존 알림 응답 DTO
+     * @return 202 Accepted (응답 본문 없음). 알림 상태 추적이 필요하면 별도의 조회·목록 API 사용.
+     * @throws DuplicateNotificationException 중복 등록 시도 (409 Conflict로 변환)
      */
     @PostMapping
     @SuppressWarnings("unused") // caller는 인증 게이트 전용 — AuthInterceptor가 401 강제
-    public ResponseEntity<NotificationResponse> create(@RequestHeader("X-User-Id") String caller,
-                                                       @RequestBody @Valid CreateNotificationRequest req) {
-        var n = service.register(req.toCommand());
-        var body = NotificationResponse.from(n);
-        return ResponseEntity.accepted().body(body);
+    public ResponseEntity<Void> create(@RequestHeader("X-User-Id") String caller,
+                                       @RequestBody @Valid CreateNotificationRequest req) {
+        service.register(req.toCommand());
+        return ResponseEntity.accepted().build();
     }
 
     /**

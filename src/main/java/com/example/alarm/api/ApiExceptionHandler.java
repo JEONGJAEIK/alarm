@@ -1,5 +1,6 @@
 package com.example.alarm.api;
 
+import com.example.alarm.service.DuplicateNotificationException;
 import com.example.alarm.service.ForbiddenException;
 import com.example.alarm.service.NotificationNotFoundException;
 import org.springframework.http.HttpStatus;
@@ -41,6 +42,18 @@ public class ApiExceptionHandler {
     public ResponseEntity<Map<String, Object>> notFound(NotificationNotFoundException ex) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND)
                 .body(error("not_found", ex.getMessage()));
+    }
+
+    /**
+     * 중복 알림 등록 시도를 409 Conflict로 변환.
+     *
+     * <p>동일 {@code (eventId, channel)} 조합이 이미 등록된 상태로, dedup_key UNIQUE
+     * 제약이 멱등성을 보장한 결과다.
+     */
+    @ExceptionHandler(DuplicateNotificationException.class)
+    public ResponseEntity<Map<String, Object>> duplicate(DuplicateNotificationException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(error("duplicate", ex.getMessage()));
     }
 
     /**
